@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "733539721297",
+    "project_id": "exam-ace-db272",
+    "storage_bucket": "exam-ace-db272.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:733539721297:android:f8b8f766a97d2d8730d870",
+        "android_client_info": {
+          "package_name": "com.examace.exam_ace"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvhR6nWIO_4ymgysKNirxkLu0zXveOz3c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
