@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:exam_ace/core/theme/app_color_preset.dart';
 
 /// Central accent colors. [ColorScheme.fromSeed] builds light/dark themes from [seedColor].
 ///
@@ -81,4 +82,123 @@ class AppColors {
   static const Color streakOrange = Color(0xFFF97316);
   static const Color streakOrangeContainer = Color(0xFFFFEDD5);
   static const Color onStreakOrangeContainer = Color(0xFF9A3412);
+}
+
+/// Per-[AppColorPreset] tokens for [AppTheme] and a few widgets (e.g. calendar “all done”).
+class AppColorPalette {
+  const AppColorPalette({
+    required this.seedColor,
+    required this.lightSurface,
+    required this.lightSurfaceContainerLow,
+    required this.lightSurfaceContainerHigh,
+    required this.lightSurfaceContainerHighest,
+    required this.completionTertiary,
+    required this.onCompletionTertiary,
+    required this.completionTertiaryContainer,
+    required this.onCompletionTertiaryContainer,
+    required this.completionTertiaryDark,
+    required this.onCompletionTertiaryDark,
+    required this.completionTertiaryContainerDark,
+    required this.onCompletionTertiaryContainerDark,
+    required this.allDone,
+  });
+
+  final Color seedColor;
+  final Color lightSurface;
+  final Color lightSurfaceContainerLow;
+  final Color lightSurfaceContainerHigh;
+  final Color lightSurfaceContainerHighest;
+
+  final Color completionTertiary;
+  final Color onCompletionTertiary;
+  final Color completionTertiaryContainer;
+  final Color onCompletionTertiaryContainer;
+
+  final Color completionTertiaryDark;
+  final Color onCompletionTertiaryDark;
+  final Color completionTertiaryContainerDark;
+  final Color onCompletionTertiaryContainerDark;
+
+  /// Calendar / legend “all tasks done” (distinct from [partial] / [noneDone]).
+  final Color allDone;
+
+  static const AppColorPalette sky = AppColorPalette(
+    seedColor: AppColors.seedColor,
+    lightSurface: AppColors.lightSurface,
+    lightSurfaceContainerLow: AppColors.lightSurfaceContainerLow,
+    lightSurfaceContainerHigh: Color(0xFFE8EEF5),
+    lightSurfaceContainerHighest: Color(0xFFDDE5EE),
+    completionTertiary: AppColors.completionTertiary,
+    onCompletionTertiary: AppColors.onCompletionTertiary,
+    completionTertiaryContainer: AppColors.completionTertiaryContainer,
+    onCompletionTertiaryContainer: AppColors.onCompletionTertiaryContainer,
+    completionTertiaryDark: AppColors.completionTertiaryDark,
+    onCompletionTertiaryDark: AppColors.onCompletionTertiaryDark,
+    completionTertiaryContainerDark: AppColors.completionTertiaryContainerDark,
+    onCompletionTertiaryContainerDark: AppColors.onCompletionTertiaryContainerDark,
+    allDone: AppColors.allDone,
+  );
+
+  /// Sand / stone surfaces + amber-brown seed.
+  static const AppColorPalette earth = AppColorPalette(
+    seedColor: Color(0xFFA16207),
+    lightSurface: Color(0xFFEFE8E0),
+    lightSurfaceContainerLow: Color(0xFFFAF7F0),
+    lightSurfaceContainerHigh: Color(0xFFE0D8CE),
+    lightSurfaceContainerHighest: Color(0xFFD2C9C0),
+    completionTertiary: Color(0xFF15803D),
+    onCompletionTertiary: Color(0xFFFFFFFF),
+    completionTertiaryContainer: Color(0xFFDCFCE7),
+    onCompletionTertiaryContainer: Color(0xFF14532D),
+    completionTertiaryDark: Color(0xFF4ADE80),
+    onCompletionTertiaryDark: Color(0xFF052E16),
+    completionTertiaryContainerDark: Color(0xFF14532D),
+    onCompletionTertiaryContainerDark: Color(0xFFBBF7D0),
+    allDone: Color(0xFF15803D),
+  );
+
+  /// Warm blush surfaces + orange seed (streak badge still reads as “heat”).
+  static const AppColorPalette fire = AppColorPalette(
+    seedColor: Color(0xFFEA580C),
+    lightSurface: Color(0xFFFFF5F0),
+    lightSurfaceContainerLow: Color(0xFFFFFBF5),
+    lightSurfaceContainerHigh: Color(0xFFFFE4D8),
+    lightSurfaceContainerHighest: Color(0xFFFFD0C2),
+    completionTertiary: Color(0xFF0D9488),
+    onCompletionTertiary: Color(0xFFFFFFFF),
+    completionTertiaryContainer: Color(0xFFCCFBF1),
+    onCompletionTertiaryContainer: Color(0xFF134E4A),
+    completionTertiaryDark: Color(0xFF2DD4BF),
+    onCompletionTertiaryDark: Color(0xFF042F2E),
+    completionTertiaryContainerDark: Color(0xFF134E4A),
+    onCompletionTertiaryContainerDark: Color(0xFFCCFBF1),
+    allDone: Color(0xFFC2410C),
+  );
+
+  /// Teal seed + warm cream surfaces (light); keeps orange streak badge readable.
+  static const AppColorPalette forest = AppColorPalette(
+    seedColor: Color(0xFF0D9488),
+    lightSurface: Color(0xFFF3EDE4),
+    lightSurfaceContainerLow: Color(0xFFFFFBF6),
+    lightSurfaceContainerHigh: Color(0xFFE8E0D6),
+    lightSurfaceContainerHighest: Color(0xFFDCD3C8),
+    completionTertiary: Color(0xFF0F766E),
+    onCompletionTertiary: Color(0xFFFFFFFF),
+    completionTertiaryContainer: Color(0xFFCCFBF1),
+    onCompletionTertiaryContainer: Color(0xFF134E4A),
+    completionTertiaryDark: Color(0xFF2DD4BF),
+    onCompletionTertiaryDark: Color(0xFF042F2E),
+    completionTertiaryContainerDark: Color(0xFF134E4A),
+    onCompletionTertiaryContainerDark: Color(0xFFCCFBF1),
+    allDone: Color(0xFF0F766E),
+  );
+}
+
+extension AppColorPresetPalette on AppColorPreset {
+  AppColorPalette get palette => switch (this) {
+        AppColorPreset.earth => AppColorPalette.earth,
+        AppColorPreset.fire => AppColorPalette.fire,
+        AppColorPreset.forest => AppColorPalette.forest,
+        AppColorPreset.sky => AppColorPalette.sky,
+      };
 }

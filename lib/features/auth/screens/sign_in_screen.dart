@@ -32,7 +32,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     setState(() => _loading = true);
     try {
       await signInFn();
-    } on Exception catch (e) {
+    } on Object catch (e) {
       if (mounted) showErrorSnackBar(context, friendlyAuthError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -167,29 +167,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _SocialIconButton(
-                      onPressed: _loading
-                          ? null
-                          : () => _signInWithProvider(
-                              () => ref.read(authServiceProvider).signInWithGoogle()),
-                      icon: Icons.g_mobiledata_rounded,
-                      color: colorScheme.surfaceContainerHigh,
-                      iconColor: colorScheme.onSurface,
-                    ),
-                    const SizedBox(width: 20),
-                    _SocialIconButton(
-                      onPressed: _loading
-                          ? null
-                          : () => _signInWithProvider(
-                              () => ref.read(authServiceProvider).signInWithFacebook()),
-                      icon: Icons.facebook_rounded,
-                      color: const Color(0xFF1877F2),
-                      iconColor: Colors.white,
-                    ),
-                  ],
+                Center(
+                  child: _SocialIconButton(
+                    onPressed: _loading
+                        ? null
+                        : () => _signInWithProvider(
+                            () => ref.read(authServiceProvider).signInWithGoogle()),
+                    icon: Icons.g_mobiledata_rounded,
+                    color: colorScheme.surfaceContainerHigh,
+                    iconColor: colorScheme.onSurface,
+                  ),
                 ),
               ],
             ),

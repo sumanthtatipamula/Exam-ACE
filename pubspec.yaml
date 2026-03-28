@@ -1,5 +1,5 @@
 name: exam_ace
-description: "A new Flutter project."
+description: "Exam prep tracker — syllabus, tasks, mocks, and exams (Flutter)."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -41,12 +41,12 @@ dependencies:
   cloud_firestore: ^5.6.12
   intl: ^0.19.0
   google_sign_in: ^6.3.0
-  flutter_facebook_auth: ^7.1.1
   flutter_local_notifications: ^18.0.1
   timezone: ^0.10.0
   image_picker: ^1.1.2
   firebase_storage: ^12.4.4
   flutter_markdown: ^0.7.4+1
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:

@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:exam_ace/core/utils/snackbar_helpers.dart';
+import 'package:exam_ace/core/widgets/subject_completion_ring.dart';
+import 'package:exam_ace/core/widgets/themed_completion_bar.dart';
 import 'package:exam_ace/features/subjects/models/chapter.dart';
 import 'package:exam_ace/features/subjects/models/topic.dart';
 import 'package:exam_ace/features/subjects/providers/subjects_provider.dart';
 import 'package:exam_ace/features/subjects/widgets/add_topic_sheet.dart';
 import 'package:exam_ace/core/utils/markdown_plain_preview.dart';
+import 'package:exam_ace/features/mock_test/providers/mock_test_provider.dart';
+import 'package:exam_ace/features/mock_test/widgets/linked_mock_test_views.dart';
 import 'package:exam_ace/features/subjects/screens/notes_editor_screen.dart';
 import 'package:exam_ace/shared/widgets/confirm_delete_dialog.dart';
 
@@ -56,6 +60,8 @@ class ChapterDetailScreen extends ConsumerWidget {
     final chaptersAsync = ref.watch(chaptersStreamProvider(subjectId));
     final topicsAsync = ref.watch(topicsStreamProvider(
         (subjectId: subjectId, chapterId: chapterId)));
+    final chapterMockTests = ref.watch(mockTestsForChapterProvider(
+        (subjectId: subjectId, chapterId: chapterId)));
 
     final chapter = chaptersAsync.valueOrNull
         ?.where((c) => c.id == chapterId)
@@ -65,96 +71,32 @@ class ChapterDetailScreen extends ConsumerWidget {
     final completion =
         chapter != null ? chapterCompletion(chapter, topics) : 0;
     final canEditChapterProgress = chapter != null && topics.isEmpty;
+    final topicsDone = topics.where((t) => t.isComplete).length;
 
     return Scaffold(
       appBar: AppBar(title: Text(chapter?.name ?? 'Chapter')),
       body: CustomScrollView(
         slivers: [
-          // --- Completion bar ---
           SliverToBoxAdapter(
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Completion',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant)),
-                        if (canEditChapterProgress)
-                          Text(
-                            'No topics yet — set progress manually',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.7),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Text('$completion%',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: completion >= 100
-                              ? colorScheme.tertiary
-                              : colorScheme.primary)),
-                  if (canEditChapterProgress)
-                    IconButton(
-                      icon: const Icon(Icons.tune_rounded),
-                      tooltip: 'Set completion',
-                      onPressed: () => _openChapterProgressSheet(
-                        context,
-                        repo,
-                        chapter,
-                        subjectId,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: canEditChapterProgress
-                  ? InkWell(
-                      onTap: () => _openChapterProgressSheet(
-                        context,
-                        repo,
-                        chapter,
-                        subjectId,
-                      ),
-                      borderRadius: BorderRadius.circular(4),
-                      child: Tooltip(
-                        message: 'Tap to set chapter completion',
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: completion / 100,
-                            minHeight: 6,
-                            backgroundColor:
-                                colorScheme.surfaceContainerHighest,
-                            color: completion >= 100
-                                ? colorScheme.tertiary
-                                : colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                    )
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: completion / 100,
-                        minHeight: 6,
-                        backgroundColor:
-                            colorScheme.surfaceContainerHighest,
-                        color: completion >= 100
-                            ? colorScheme.tertiary
-                            : colorScheme.primary,
-                      ),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: chapter == null
+                  ? const SizedBox.shrink()
+                  : _ChapterCompletionCard(
+                      completion: completion,
+                      topicCount: topics.length,
+                      topicsDone: topicsDone,
+                      canEditManual: canEditChapterProgress,
+                      onEditManual: canEditChapterProgress
+                          ? () => _openChapterProgressSheet(
+                                context,
+                                repo,
+                                chapter,
+                                subjectId,
+                              )
+                          : null,
+                      colorScheme: colorScheme,
+                      theme: theme,
                     ),
             ),
           ),
@@ -167,6 +109,7 @@ class ChapterDetailScreen extends ConsumerWidget {
               child: _NotesTile(
                 label: 'Chapter Notes',
                 preview: chapter?.summaryNotes ?? '',
+                showPreview: false,
                 onTap: () {
                   if (chapter == null) return;
                   Navigator.of(context).push(
@@ -234,6 +177,7 @@ class ChapterDetailScreen extends ConsumerWidget {
                 itemBuilder: (ctx, index) {
                   final topic = topics[index];
                   return _TopicTile(
+                    number: index + 1,
                     topic: topic,
                     subjectId: subjectId,
                     onUpdateProgress: (progress) {
@@ -265,6 +209,15 @@ class ChapterDetailScreen extends ConsumerWidget {
                 },
               ),
             ),
+          SliverToBoxAdapter(
+            child: chapterMockTests.isEmpty
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: ChapterMockTestsListSection(
+                        tests: chapterMockTests),
+                  ),
+          ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),
@@ -286,6 +239,7 @@ class ChapterDetailScreen extends ConsumerWidget {
               name: name,
               date: date,
               progress: progress,
+              createdAt: DateTime.now(),
             ),
           );
         },
@@ -319,6 +273,155 @@ class ChapterDetailScreen extends ConsumerWidget {
   }
 }
 
+class _ChapterCompletionCard extends StatelessWidget {
+  final int completion;
+  final int topicCount;
+  final int topicsDone;
+  final bool canEditManual;
+  final VoidCallback? onEditManual;
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+
+  const _ChapterCompletionCard({
+    required this.completion,
+    required this.topicCount,
+    required this.topicsDone,
+    required this.canEditManual,
+    required this.onEditManual,
+    required this.colorScheme,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent =
+        completion >= 100 ? colorScheme.tertiary : colorScheme.primary;
+    final border = Color.alphaBlend(
+      accent.withValues(alpha: 0.22),
+      colorScheme.outlineVariant.withValues(alpha: 0.45),
+    );
+
+    String subtitle;
+    if (topicCount == 0) {
+      subtitle =
+          'No topics yet — use the slider to set chapter progress manually';
+    } else if (topicCount == 1) {
+      subtitle = topicsDone >= 1
+          ? '1 topic — complete'
+          : '1 topic — bring it to 100% to finish this chapter';
+    } else {
+      subtitle = '$topicsDone of $topicCount topics complete';
+    }
+
+    final bar = ThemedCompletionBar(
+      progress: completion.toDouble(),
+      height: 12,
+      borderRadius: 999,
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.alphaBlend(
+              accent.withValues(alpha: 0.10),
+              colorScheme.surfaceContainerLow,
+            ),
+            colorScheme.surfaceContainerLow,
+          ],
+        ),
+        border: Border.all(color: border, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 12, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SubjectCompletionRing(
+                  progress: completion.toDouble(),
+                  size: 76,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.menu_book_rounded,
+                            size: 20,
+                            color: accent,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Chapter completion',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (canEditManual && onEditManual != null)
+                  IconButton(
+                    tooltip: 'Set completion',
+                    icon: Icon(Icons.tune_rounded, color: accent),
+                    onPressed: onEditManual,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (canEditManual && onEditManual != null)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onEditManual,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Tooltip(
+                      message: 'Tap to set chapter completion',
+                      child: bar,
+                    ),
+                  ),
+                ),
+              )
+            else
+              bar,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // --- Notes tile ---
 
 class _NotesTile extends StatelessWidget {
@@ -326,10 +429,14 @@ class _NotesTile extends StatelessWidget {
   final String preview;
   final VoidCallback onTap;
 
+  /// When `false`, the card never shows note body (e.g. chapter list privacy).
+  final bool showPreview;
+
   const _NotesTile({
     required this.label,
     required this.preview,
     required this.onTap,
+    this.showPreview = true,
   });
 
   @override
@@ -337,6 +444,16 @@ class _NotesTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final hasContent = preview.trim().isNotEmpty;
+
+    final String subtitle;
+    if (showPreview) {
+      subtitle = hasContent
+          ? plainPreviewFromMarkdown(preview)
+          : 'Tap to add notes...';
+    } else {
+      subtitle =
+          hasContent ? 'Tap to view or edit' : 'Tap to add notes...';
+    }
 
     return Card(
       elevation: 0,
@@ -369,9 +486,7 @@ class _NotesTile extends StatelessWidget {
                             ?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 2),
                     Text(
-                      hasContent
-                          ? plainPreviewFromMarkdown(preview)
-                          : 'Tap to add notes...',
+                      subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: hasContent
                             ? colorScheme.onSurfaceVariant
@@ -380,7 +495,7 @@ class _NotesTile extends StatelessWidget {
                         fontStyle:
                             hasContent ? null : FontStyle.italic,
                       ),
-                      maxLines: 2,
+                      maxLines: showPreview ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -399,6 +514,8 @@ class _NotesTile extends StatelessWidget {
 // --- Topic tile ---
 
 class _TopicTile extends StatelessWidget {
+  /// 1-based position in the chapter’s topic list (creation order).
+  final int number;
   final Topic topic;
   final String subjectId;
   final ValueChanged<int> onUpdateProgress;
@@ -407,6 +524,7 @@ class _TopicTile extends StatelessWidget {
   final VoidCallback onDelete;
 
   const _TopicTile({
+    required this.number,
     required this.topic,
     required this.subjectId,
     required this.onUpdateProgress,
@@ -453,7 +571,8 @@ class _TopicTile extends StatelessWidget {
                   ],
                 ),
         ),
-        title: Text(topic.name,
+        title: Text(
+            '$number. ${topic.name}',
             style: theme.textTheme.bodyLarge?.copyWith(
                 decoration:
                     topic.isComplete ? TextDecoration.lineThrough : null,
@@ -506,7 +625,7 @@ class _TopicTile extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => NotesEditorScreen(
-          title: '${topic.name} — Notes',
+          title: '$number. ${topic.name} — Notes',
           initialContent: topic.notes,
           onSave: onUpdateNotes,
         ),
@@ -519,7 +638,7 @@ class _TopicTile extends StatelessWidget {
       context: context,
       builder: (ctx) {
         return _SliderProgressSheet(
-          title: topic.name,
+          title: '$number. ${topic.name}',
           initialProgress: topic.progress,
           onSave: (value) {
             onUpdateProgress(value);

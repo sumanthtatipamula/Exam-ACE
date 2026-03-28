@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "733539721297",
-    "project_id": "exam-ace-db272",
-    "storage_bucket": "exam-ace-db272.firebasestorage.app"
+    "project_number": "YOUR_PROJECT_NUMBER",
+    "project_id": "YOUR_PROJECT_ID",
+    "storage_bucket": "YOUR_PROJECT_ID.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:733539721297:android:f8b8f766a97d2d8730d870",
+        "mobilesdk_app_id": "YOUR_ANDROID_APP_ID",
         "android_client_info": {
-          "package_name": "com.examace.exam_ace"
+          "package_name": "com.example.your_app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBvhR6nWIO_4ymgysKNirxkLu0zXveOz3c"
+          "current_key": "YOUR_ANDROID_API_KEY"
         }
       ],
       "services": {

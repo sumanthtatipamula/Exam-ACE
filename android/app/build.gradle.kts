@@ -33,6 +33,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        resValue("string", "app_name", "Exam Ace")
     }
 
     buildTypes {

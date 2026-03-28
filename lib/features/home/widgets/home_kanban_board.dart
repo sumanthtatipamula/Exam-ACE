@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:exam_ace/core/utils/safe_error_message.dart';
 import 'package:exam_ace/core/utils/snackbar_helpers.dart';
 import 'package:exam_ace/features/home/models/home_task.dart'
     show HomeTask, HomeTaskSource, homeTaskEntityKey;
@@ -83,12 +84,16 @@ class HomeKanbanBoard extends ConsumerWidget {
         entityKey: homeTaskEntityKey(task),
         progress: next,
       );
-      if (next >= 100) {
-        await repo.removeCarryFromToday(homeTaskEntityKey(task));
-      }
-    } catch (e) {
+    } on Object catch (e) {
       if (context.mounted) {
-        showErrorSnackBar(context, 'Could not update: $e');
+        showErrorSnackBar(
+          context,
+          userFacingError(
+            e,
+            debugPrefix: 'Update task',
+            releaseMessage: 'Could not update. Please try again.',
+          ),
+        );
       }
     }
   }

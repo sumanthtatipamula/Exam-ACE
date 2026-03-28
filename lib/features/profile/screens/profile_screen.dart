@@ -3,11 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:exam_ace/core/theme/app_color_preset.dart';
+import 'package:exam_ace/core/theme/color_preset_provider.dart';
 import 'package:exam_ace/core/theme/theme_provider.dart';
 import 'package:exam_ace/core/services/image_upload_service.dart';
+import 'package:exam_ace/core/utils/safe_error_message.dart';
 import 'package:exam_ace/core/utils/snackbar_helpers.dart';
 import 'package:exam_ace/features/auth/providers/auth_provider.dart';
+import 'package:exam_ace/core/constants/about_sections.dart';
+import 'package:exam_ace/core/settings/metric_formula_mode.dart';
+import 'package:exam_ace/core/settings/metric_formula_provider.dart';
+import 'package:exam_ace/core/settings/syllabus_sort_mode.dart';
+import 'package:exam_ace/core/settings/syllabus_sort_provider.dart';
 import 'package:exam_ace/features/profile/widgets/change_password_sheet.dart';
+import 'package:exam_ace/features/profile/widgets/syllabus_sort_sheet.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -88,8 +97,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         setState(() {});
         showSuccessSnackBar(context, 'Profile photo updated');
       }
-    } on Exception catch (e) {
-      if (mounted) showErrorSnackBar(context, 'Upload failed: $e');
+    } on Object catch (e) {
+      if (mounted) {
+        showErrorSnackBar(
+          context,
+          userFacingError(
+            e,
+            debugPrefix: 'Upload photo',
+            releaseMessage: 'Could not upload photo. Please try again.',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
     }
@@ -121,15 +139,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       final user = ref.read(authServiceProvider).currentUser;
       if (user == null) return;
+      final oldUrl = user.photoURL;
       await user.updatePhotoURL(null);
       await user.reload();
+      if (oldUrl != null) {
+        await ImageUploadService.deleteFirebaseStorageDownloadUrl(oldUrl);
+      }
       if (mounted) {
         setState(() {});
         showSuccessSnackBar(context, 'Profile photo removed');
       }
-    } on Exception catch (e) {
+    } on Object catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, 'Could not remove photo: $e');
+        showErrorSnackBar(
+          context,
+          userFacingError(
+            e,
+            debugPrefix: 'Remove photo',
+            releaseMessage: 'Could not remove photo. Please try again.',
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
@@ -190,12 +219,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(
-          context,
-          friendlyAuthError(
-            e is Exception ? e : Exception(e.toString()),
-          ),
-        );
+        showErrorSnackBar(context, friendlyAuthError(e));
       }
     } finally {
       if (mounted) setState(() => _destructiveBusy = false);
@@ -218,12 +242,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await ref.read(authServiceProvider).deleteAccount();
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(
-          context,
-          friendlyAuthError(
-            e is Exception ? e : Exception(e.toString()),
-          ),
-        );
+        showErrorSnackBar(context, friendlyAuthError(e));
       }
     } finally {
       if (mounted) setState(() => _destructiveBusy = false);
@@ -245,47 +264,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ProfileAvatar(
-            photoUrl: photoUrl,
-            uploading: _uploadingPhoto,
-            onTap: _uploadingPhoto
-                ? null
-                : () => _showPhotoActions(hasPhoto: photoUrl != null),
-            colorScheme: colorScheme,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            displayName,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            email,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (!isEmailUser)
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: colorScheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(12),
+          // Centered hero (same as before section-level stretch): photo, name, email.
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _ProfileAvatar(
+                photoUrl: photoUrl,
+                uploading: _uploadingPhoto,
+                onTap: _uploadingPhoto
+                    ? null
+                    : () => _showPhotoActions(hasPhoto: photoUrl != null),
+                colorScheme: colorScheme,
               ),
-              child: Text(
-                _providerLabel(user),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSecondaryContainer,
+              const SizedBox(height: 16),
+              Text(
+                displayName,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
+              const SizedBox(height: 4),
+              Text(
+                email,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (!isEmailUser)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _providerLabel(user),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 28),
+          _ProfileSectionHeader(
+            title: 'Account',
+            subtitle:
+                'Your details, password, and notification settings.',
+          ),
           _InfoCard(
             children: [
               _InfoRow(
@@ -299,7 +332,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   value: email),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           if (isEmailUser)
             _ProfileTile(
               icon: Icons.lock_reset_rounded,
@@ -315,32 +348,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             title: 'Notifications',
             onTap: () => context.push('/notifications'),
           ),
+          const SizedBox(height: 20),
+          _ProfileSectionHeader(
+            title: 'Appearance',
+            subtitle: 'Theme and colour mood.',
+          ),
           const _ThemeToggleTile(),
+          const _AccentPresetTile(),
+          const SizedBox(height: 20),
+          _ProfileSectionHeader(
+            title: 'Study',
+            subtitle:
+                'Syllabus order and how your week progress % is calculated.',
+          ),
           _ProfileTile(
-            icon: Icons.info_outlined,
-            title: 'About',
+            icon: Icons.sort_rounded,
+            title: 'Chapter & topic order',
+            subtitle: ref.watch(syllabusSortProvider).title,
+            onTap: () => showSyllabusSortSheet(context, ref),
+          ),
+          const _MetricFormulaTile(),
+          const SizedBox(height: 20),
+          _ProfileAboutNavCard(
             onTap: () => context.push('/about'),
           ),
           const SizedBox(height: 20),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Data & account',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          _ProfileSectionHeader(
+            title: 'Data & account',
+            subtitle:
+                'The actions below are permanent and cannot be reversed.',
           ),
-          const SizedBox(height: 4),
-          Text(
-            'The actions below are permanent and cannot be reversed.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
           _DangerActionTile(
             icon: Icons.delete_sweep_outlined,
             title: 'Clear all data',
@@ -403,6 +440,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
 // --- Extracted widgets ---
 
+/// Section title + optional subtitle, matching **Data & account** typography.
+class _ProfileSectionHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+
+  const _ProfileSectionHeader({
+    required this.title,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+      ],
+    );
+  }
+}
+
 class _ProfileAvatar extends StatelessWidget {
   final String? photoUrl;
   final bool uploading;
@@ -418,37 +496,47 @@ class _ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const double diameter = 48 * 2;
     return GestureDetector(
       onTap: onTap,
-      child: Stack(
-        children: [
-          CircleAvatar(
-            radius: 48,
-            backgroundColor: colorScheme.primaryContainer,
-            backgroundImage:
-                photoUrl != null ? NetworkImage(photoUrl!) : null,
-            child: uploading
-                ? const CircularProgressIndicator(strokeWidth: 2.5)
-                : photoUrl == null
-                    ? Icon(Icons.person_rounded,
-                        size: 48, color: colorScheme.onPrimaryContainer)
-                    : null,
-          ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: colorScheme.primary,
-                shape: BoxShape.circle,
-                border: Border.all(color: colorScheme.surface, width: 2),
+      // Bounded Stack so the camera badge stays on the avatar (wide parents
+      // would otherwise stretch the Stack edge-to-edge).
+      child: Center(
+        child: SizedBox(
+          width: diameter,
+          height: diameter,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              CircleAvatar(
+                radius: 48,
+                backgroundColor: colorScheme.primaryContainer,
+                backgroundImage:
+                    photoUrl != null ? NetworkImage(photoUrl!) : null,
+                child: uploading
+                    ? const CircularProgressIndicator(strokeWidth: 2.5)
+                    : photoUrl == null
+                        ? Icon(Icons.person_rounded,
+                            size: 48, color: colorScheme.onPrimaryContainer)
+                        : null,
               ),
-              child: Icon(Icons.camera_alt_rounded,
-                  size: 16, color: colorScheme.onPrimary),
-            ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colorScheme.surface, width: 2),
+                  ),
+                  child: Icon(Icons.camera_alt_rounded,
+                      size: 16, color: colorScheme.onPrimary),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -465,8 +553,10 @@ class _InfoCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 8),
       color: colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(children: children),
@@ -518,11 +608,13 @@ class _InfoRow extends StatelessWidget {
 class _ProfileTile extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String? subtitle;
   final VoidCallback onTap;
 
   const _ProfileTile({
     required this.icon,
     required this.title,
+    this.subtitle,
     required this.onTap,
   });
 
@@ -535,15 +627,85 @@ class _ProfileTile extends StatelessWidget {
       elevation: 0,
       color: colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
         onTap: onTap,
         leading: Icon(icon, color: colorScheme.onSurfaceVariant),
         title: Text(title, style: theme.textTheme.bodyLarge),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              )
+            : null,
         trailing: Icon(Icons.chevron_right_rounded,
             color: colorScheme.onSurfaceVariant),
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+}
+
+/// Single card: section copy + nav affordance (no duplicate title vs header).
+class _ProfileAboutNavCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ProfileAboutNavCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.info_outlined, color: colorScheme.onSurfaceVariant),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'About',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'What this app does and how features work.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -572,7 +734,8 @@ class _DangerActionTile extends StatelessWidget {
     return Card(
       elevation: 0,
       color: colorScheme.errorContainer.withValues(alpha: 0.4),
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: colorScheme.error.withValues(alpha: 0.4)),
@@ -601,6 +764,290 @@ class _DangerActionTile extends StatelessWidget {
   }
 }
 
+IconData _metricFormulaIcon(MetricFormulaMode m) => switch (m) {
+      MetricFormulaMode.math => Icons.equalizer,
+      MetricFormulaMode.physics => Icons.bolt_rounded,
+      MetricFormulaMode.chemistry => Icons.vertical_align_bottom,
+    };
+
+Widget _metricFormulaChip({
+  required BuildContext context,
+  required WidgetRef ref,
+  required MetricFormulaMode option,
+  required MetricFormulaMode selected,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return SizedBox(
+    width: double.infinity,
+    child: Tooltip(
+      message: option.detailHint,
+      child: FilterChip(
+        avatar: Icon(
+          _metricFormulaIcon(option),
+          size: 17,
+          color: selected == option
+              ? colorScheme.onSecondaryContainer
+              : colorScheme.onSurfaceVariant,
+        ),
+        label: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            option.title,
+            maxLines: 1,
+            softWrap: false,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        selected: selected == option,
+        onSelected: (_) =>
+            ref.read(metricFormulaProvider.notifier).setMode(option),
+        showCheckmark: false,
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        labelPadding: const EdgeInsets.only(left: 2, right: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+      ),
+    ),
+  );
+}
+
+IconData _accentIcon(AppColorPreset p) => switch (p) {
+      AppColorPreset.earth => Icons.terrain_rounded,
+      AppColorPreset.fire => Icons.local_fire_department_rounded,
+      AppColorPreset.forest => Icons.park_rounded,
+      AppColorPreset.sky => Icons.cloud_outlined,
+    };
+
+Widget _accentMoodChip({
+  required BuildContext context,
+  required WidgetRef ref,
+  required AppColorPreset option,
+  required AppColorPreset selected,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return SizedBox(
+    width: double.infinity,
+    child: FilterChip(
+      avatar: Icon(
+        _accentIcon(option),
+        size: 18,
+        color: selected == option
+            ? colorScheme.onSecondaryContainer
+            : colorScheme.onSurfaceVariant,
+      ),
+      label: Text(option.shortLabel),
+      selected: selected == option,
+      onSelected: (_) =>
+          ref.read(appColorPresetProvider.notifier).setPreset(option),
+      showCheckmark: false,
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
+  );
+}
+
+class _MetricFormulaTile extends ConsumerWidget {
+  const _MetricFormulaTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final mode = ref.watch(metricFormulaProvider);
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.analytics_outlined,
+                    color: colorScheme.onSurfaceVariant),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'How your week % is counted',
+                    style: theme.textTheme.bodyLarge,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Tooltip(
+                  message: 'Examples and plain-English help in About',
+                  child: TextButton(
+                    onPressed: () => context.push(
+                      '/about?section=${AboutSections.weekScore}',
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      'Learn more',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              mode.subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _metricFormulaChip(
+                    context: context,
+                    ref: ref,
+                    option: MetricFormulaMode.math,
+                    selected: mode,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _metricFormulaChip(
+                    context: context,
+                    ref: ref,
+                    option: MetricFormulaMode.physics,
+                    selected: mode,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _metricFormulaChip(
+                    context: context,
+                    ref: ref,
+                    option: MetricFormulaMode.chemistry,
+                    selected: mode,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccentPresetTile extends ConsumerWidget {
+  const _AccentPresetTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final preset = ref.watch(appColorPresetProvider);
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.palette_outlined, color: colorScheme.onSurfaceVariant),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Color mood',
+                    style: theme.textTheme.bodyLarge,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Earth · stone & amber · Fire · warm orange · Forest · cream & teal · Sky · cool blue.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _accentMoodChip(
+                        context: context,
+                        ref: ref,
+                        option: AppColorPreset.earth,
+                        selected: preset,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _accentMoodChip(
+                        context: context,
+                        ref: ref,
+                        option: AppColorPreset.fire,
+                        selected: preset,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _accentMoodChip(
+                        context: context,
+                        ref: ref,
+                        option: AppColorPreset.forest,
+                        selected: preset,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _accentMoodChip(
+                        context: context,
+                        ref: ref,
+                        option: AppColorPreset.sky,
+                        selected: preset,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ThemeToggleTile extends ConsumerWidget {
   const _ThemeToggleTile();
 
@@ -614,7 +1061,8 @@ class _ThemeToggleTile extends ConsumerWidget {
       elevation: 0,
       color: colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         child: Column(

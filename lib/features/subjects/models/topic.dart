@@ -8,6 +8,9 @@ class Topic {
   final int progress;
   final String notes;
 
+  /// When this topic was first created (list order). Legacy docs may omit this.
+  final DateTime? createdAt;
+
   const Topic({
     required this.id,
     required this.chapterId,
@@ -15,6 +18,7 @@ class Topic {
     this.date,
     this.progress = 0,
     this.notes = '',
+    this.createdAt,
   });
 
   bool get isComplete => progress >= 100;
@@ -26,6 +30,7 @@ class Topic {
     DateTime? date,
     int? progress,
     String? notes,
+    DateTime? createdAt,
   }) {
     return Topic(
       id: id ?? this.id,
@@ -34,6 +39,7 @@ class Topic {
       date: date ?? this.date,
       progress: progress ?? this.progress,
       notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 
@@ -45,6 +51,7 @@ class Topic {
       date: (map['date'] as Timestamp?)?.toDate(),
       progress: (map['progress'] as num?)?.toInt() ?? 0,
       notes: map['notes'] as String? ?? '',
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -54,6 +61,7 @@ class Topic {
       'date': date != null ? Timestamp.fromDate(date!) : null,
       'progress': progress,
       'notes': notes,
+      if (createdAt != null) 'createdAt': Timestamp.fromDate(createdAt!),
     };
   }
 }

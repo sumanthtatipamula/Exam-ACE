@@ -1,7 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:exam_ace/core/services/image_upload_service.dart';
+import 'package:exam_ace/features/auth/providers/auth_provider.dart';
 import 'package:exam_ace/features/subjects/models/subject.dart';
+import 'package:exam_ace/core/settings/syllabus_sort.dart';
+import 'package:exam_ace/core/settings/syllabus_sort_provider.dart';
 import 'package:exam_ace/features/subjects/models/chapter.dart';
 import 'package:exam_ace/features/subjects/models/topic.dart';
 
@@ -45,8 +49,23 @@ class SubjectsRepository {
   Future<void> addSubject(Subject subject) =>
       _subjectsCol().add(subject.toMap());
 
-  Future<void> updateSubject(Subject subject) =>
-      _subjectsCol().doc(subject.id).update(subject.toMap());
+  /// When [clearImageUrl] is true, removes `imageUrl` in Firestore and deletes the
+  /// previous Storage object if [previousImageUrlForStorageDelete] is a Firebase URL.
+  Future<void> updateSubject(
+    Subject subject, {
+    bool clearImageUrl = false,
+    String? previousImageUrlForStorageDelete,
+  }) async {
+    final map = Map<String, dynamic>.from(subject.toMap());
+    if (clearImageUrl) {
+      map['imageUrl'] = FieldValue.delete();
+    }
+    await _subjectsCol().doc(subject.id).update(map);
+    if (clearImageUrl && previousImageUrlForStorageDelete != null) {
+      await ImageUploadService.deleteFirebaseStorageDownloadUrl(
+          previousImageUrlForStorageDelete);
+    }
+  }
 
   Future<void> deleteSubject(String subjectId) async {
     final chaptersSnap = await _chaptersCol(subjectId).get();
@@ -59,12 +78,9 @@ class SubjectsRepository {
   // --- Chapters ---
 
   Stream<List<Chapter>> watchChapters(String subjectId) {
-    return _chaptersCol(subjectId)
-        .orderBy('name')
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => Chapter.fromMap(d.id, subjectId, d.data()))
-            .toList());
+    return _chaptersCol(subjectId).snapshots().map((snap) => snap.docs
+        .map((d) => Chapter.fromMap(d.id, subjectId, d.data()))
+        .toList());
   }
 
   Future<void> addChapter(String subjectId, Chapter chapter) async {
@@ -128,12 +144,9 @@ class SubjectsRepository {
   // --- Topics ---
 
   Stream<List<Topic>> watchTopics(String subjectId, String chapterId) {
-    return _topicsCol(subjectId, chapterId)
-        .orderBy('name')
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => Topic.fromMap(d.id, chapterId, d.data()))
-            .toList());
+    return _topicsCol(subjectId, chapterId).snapshots().map((snap) => snap.docs
+        .map((d) => Topic.fromMap(d.id, chapterId, d.data()))
+        .toList());
   }
 
   Future<void> addTopic(String subjectId, String chapterId, Topic topic) async {
@@ -169,20 +182,60 @@ class SubjectsRepository {
 // ---------------------------------------------------------------------------
 
 final subjectsStreamProvider = StreamProvider<List<Subject>>((ref) {
-  return ref.watch(subjectsRepositoryProvider).watchSubjects();
+  return streamWhenSignedIn(
+    ref,
+    <Subject>[],
+    () => ref.watch(subjectsRepositoryProvider).watchSubjects(),
+  );
 });
 
-final chaptersStreamProvider =
+/// Raw Firestore order for chapters (unsorted).
+final _rawChaptersStreamProvider =
     StreamProvider.family<List<Chapter>, String>((ref, subjectId) {
-  return ref.watch(subjectsRepositoryProvider).watchChapters(subjectId);
+  return streamWhenSignedIn(
+    ref,
+    <Chapter>[],
+    () => ref.watch(subjectsRepositoryProvider).watchChapters(subjectId),
+  );
 });
 
-final topicsStreamProvider =
-    StreamProvider.family<List<Topic>, ({String subjectId, String chapterId})>(
-        (ref, params) {
-  return ref
-      .watch(subjectsRepositoryProvider)
-      .watchTopics(params.subjectId, params.chapterId);
+/// Chapters for [subjectId] sorted by [syllabusSortProvider].
+final chaptersStreamProvider =
+    Provider.family<AsyncValue<List<Chapter>>, String>((ref, subjectId) {
+  final raw = ref.watch(_rawChaptersStreamProvider(subjectId));
+  final mode = ref.watch(syllabusSortProvider);
+  return raw.whenData((list) {
+    final copy = List<Chapter>.from(list);
+    sortChapters(copy, mode);
+    return copy;
+  });
+});
+
+/// Raw Firestore order for topics (unsorted).
+final _rawTopicsStreamProvider = StreamProvider.family<
+    List<Topic>,
+    ({String subjectId, String chapterId})>((ref, params) {
+  return streamWhenSignedIn(
+    ref,
+    <Topic>[],
+    () => ref.watch(subjectsRepositoryProvider).watchTopics(
+          params.subjectId,
+          params.chapterId,
+        ),
+  );
+});
+
+/// Topics sorted by [syllabusSortProvider].
+final topicsStreamProvider = Provider.family<
+    AsyncValue<List<Topic>>,
+    ({String subjectId, String chapterId})>((ref, params) {
+  final raw = ref.watch(_rawTopicsStreamProvider(params));
+  final mode = ref.watch(syllabusSortProvider);
+  return raw.whenData((list) {
+    final copy = List<Topic>.from(list);
+    sortTopics(copy, mode);
+    return copy;
+  });
 });
 
 // ---------------------------------------------------------------------------

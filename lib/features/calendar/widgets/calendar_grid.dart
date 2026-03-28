@@ -6,6 +6,8 @@ class CalendarGrid extends StatelessWidget {
   final DateTime month;
   final DateTime selectedDate;
   final DateTime today;
+  /// Matches [AppColorPalette.allDone] for the active accent preset.
+  final Color allDoneColor;
   final ValueChanged<DateTime> onDateSelected;
   final DailyRecord? Function(DateTime date) recordForDate;
 
@@ -14,6 +16,7 @@ class CalendarGrid extends StatelessWidget {
     required this.month,
     required this.selectedDate,
     required this.today,
+    required this.allDoneColor,
     required this.onDateSelected,
     required this.recordForDate,
   });
@@ -53,6 +56,7 @@ class CalendarGrid extends StatelessWidget {
           startWeekday: startWeekday,
           theme: theme,
           colorScheme: colorScheme,
+          allDoneColor: allDoneColor,
         ),
       ],
     );
@@ -64,6 +68,7 @@ class CalendarGrid extends StatelessWidget {
     required int startWeekday,
     required ThemeData theme,
     required ColorScheme colorScheme,
+    required Color allDoneColor,
   }) {
     final weeks = <Widget>[];
     final totalSlots = startWeekday - 1 + daysInMonth;
@@ -105,6 +110,7 @@ class CalendarGrid extends StatelessWidget {
                 record: record,
                 theme: theme,
                 colorScheme: colorScheme,
+                allDoneColor: allDoneColor,
               ),
             ),
           ),
@@ -129,6 +135,7 @@ class _DateCell extends StatelessWidget {
   final DailyRecord? record;
   final ThemeData theme;
   final ColorScheme colorScheme;
+  final Color allDoneColor;
 
   const _DateCell({
     required this.day,
@@ -138,6 +145,7 @@ class _DateCell extends StatelessWidget {
     required this.record,
     required this.theme,
     required this.colorScheme,
+    required this.allDoneColor,
   });
 
   @override
@@ -159,7 +167,7 @@ class _DateCell extends StatelessWidget {
     Color? dotColor;
     if (!isFuture && record != null && record!.totalTasks > 0) {
       if (record!.allComplete) {
-        dotColor = AppColors.allDone;
+        dotColor = allDoneColor;
       } else if (record!.hasPartial) {
         dotColor = AppColors.partial;
       } else {

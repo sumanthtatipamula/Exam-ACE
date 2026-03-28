@@ -83,7 +83,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/about',
         name: 'about',
-        builder: (context, state) => const AboutScreen(),
+        builder: (context, state) {
+          final section = state.uri.queryParameters['section'];
+          return AboutScreen(
+            scrollToWeekScoreSection: section == 'week-score',
+          );
+        },
       ),
     ],
   );

@@ -1,6 +1,9 @@
 rules_version = '2';
 // Deploy: Firebase Console → Storage → Rules, or: firebase deploy --only storage
 // (ensure firebase.json includes "storage": { "rules": "storage.rules" })
+//
+// User-scoped paths only. App uses ImagePicker + size limits; avoid splitting
+// read/write here so delete operations stay reliable across SDK versions.
 
 service firebase.storage {
   match /b/{bucket}/o {

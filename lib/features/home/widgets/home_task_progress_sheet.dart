@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:exam_ace/core/utils/safe_error_message.dart';
 import 'package:exam_ace/core/utils/snackbar_helpers.dart';
 import 'package:exam_ace/features/home/models/home_task.dart'
     show HomeTask, HomeTaskSource, homeTaskEntityKey;
@@ -68,9 +69,6 @@ Future<void> showHomeTaskProgressEditor(
                 entityKey: homeTaskEntityKey(task),
                 progress: value,
               );
-              if (value >= 100) {
-                await repo.removeCarryFromToday(homeTaskEntityKey(task));
-              }
               if (ctx.mounted) Navigator.of(ctx).pop();
               if (reachedFull && context.mounted) {
                 await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -78,9 +76,16 @@ Future<void> showHomeTaskProgressEditor(
                   await showTaskCompletionCelebration(context);
                 }
               }
-            } catch (e) {
+            } on Object catch (e) {
               if (context.mounted) {
-                showErrorSnackBar(context, 'Could not save: $e');
+                showErrorSnackBar(
+                  context,
+                  userFacingError(
+                    e,
+                    debugPrefix: 'Save progress',
+                    releaseMessage: 'Could not save. Please try again.',
+                  ),
+                );
               }
             }
           },

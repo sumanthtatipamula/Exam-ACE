@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:exam_ace/core/config/social_auth_config.dart';
 import 'package:exam_ace/core/services/user_data_cleanup_service.dart';
 
 export 'package:exam_ace/core/utils/auth_error_mapper.dart' show friendlyAuthError;
@@ -23,6 +23,19 @@ final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(firebaseAuthProvider).authStateChanges();
 });
 
+/// User-scoped Firestore streams must not run while signed out: a lingering
+/// listener could still target `users/{oldUid}/...` after sign-in as another user.
+Stream<T> streamWhenSignedIn<T>(
+  Ref ref,
+  T emptyValue,
+  Stream<T> Function() stream,
+) {
+  if (ref.watch(authStateProvider).valueOrNull?.uid == null) {
+    return Stream.value(emptyValue);
+  }
+  return stream();
+}
+
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(
     ref.watch(firebaseAuthProvider),
@@ -33,6 +46,13 @@ final authServiceProvider = Provider<AuthService>((ref) {
 class AuthService {
   final FirebaseAuth _auth;
   final UserDataCleanupService _cleanup;
+
+  /// Single instance so [signOut] clears the same session [signInWithGoogle] created.
+  late final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: const ['email', 'profile'],
+    serverClientId:
+        kGoogleSignInWebClientId.isEmpty ? null : kGoogleSignInWebClientId,
+  );
 
   AuthService(this._auth, this._cleanup);
 
@@ -60,6 +80,9 @@ class AuthService {
     return _auth.signInWithEmailAndPassword(email: email, password: password);
   }
 
+  /// Creates an email/password account. Firebase rejects duplicate emails with
+  /// [FirebaseAuthException] code `email-already-in-use` (including when the
+  /// same address exists via Google if “one account per email” is enabled).
   Future<UserCredential> signUpWithEmail(
       String email, String password, String name) async {
     final cred = await _auth.createUserWithEmailAndPassword(
@@ -71,23 +94,23 @@ class AuthService {
   }
 
   Future<UserCredential?> signInWithGoogle() async {
-    final googleUser = await GoogleSignIn().signIn();
+    final googleUser = await _googleSignIn.signIn();
     if (googleUser == null) return null;
 
     final googleAuth = await googleUser.authentication;
+    if (googleAuth.accessToken == null && googleAuth.idToken == null) {
+      throw FirebaseAuthException(
+        code: 'invalid-credential',
+        message:
+            'Google Sign-In did not return tokens. For Android: add your app’s SHA-1 in '
+            'Firebase Console, replace google-services.json, and rebuild; or run with '
+            '--dart-define=GOOGLE_SIGN_IN_WEB_CLIENT_ID=<web_client_id>.apps.googleusercontent.com',
+      );
+    }
     final credential = GoogleAuthProvider.credential(
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
-    return _auth.signInWithCredential(credential);
-  }
-
-  Future<UserCredential?> signInWithFacebook() async {
-    final result = await FacebookAuth.instance.login();
-    if (result.status != LoginStatus.success) return null;
-
-    final credential =
-        FacebookAuthProvider.credential(result.accessToken!.tokenString);
     return _auth.signInWithCredential(credential);
   }
 
@@ -105,14 +128,12 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    // Email users never used Google/Facebook; those calls can throw on Android
-    // and would block Firebase sign-out if not caught.
+    // Email users never used Google; sign-out can throw on Android if no session.
     try {
-      await GoogleSignIn().signOut();
-    } catch (_) {}
-    try {
-      await FacebookAuth.instance.logOut();
-    } catch (_) {}
+      await _googleSignIn.signOut();
+    } on Object {
+      // No Google session, or platform SDK quirk — safe to ignore before Firebase sign-out.
+    }
     await _auth.signOut();
   }
 }

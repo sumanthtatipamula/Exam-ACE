@@ -8,6 +8,10 @@ class Chapter {
   final int progress;
   final String summaryNotes;
 
+  /// When this chapter row was first created (used for list order).
+  /// Older documents may omit this; UI falls back to name order among those.
+  final DateTime? createdAt;
+
   const Chapter({
     required this.id,
     required this.subjectId,
@@ -15,6 +19,7 @@ class Chapter {
     this.date,
     this.progress = 0,
     this.summaryNotes = '',
+    this.createdAt,
   });
 
   Chapter copyWith({
@@ -24,6 +29,7 @@ class Chapter {
     DateTime? date,
     int? progress,
     String? summaryNotes,
+    DateTime? createdAt,
   }) {
     return Chapter(
       id: id ?? this.id,
@@ -32,6 +38,7 @@ class Chapter {
       date: date ?? this.date,
       progress: progress ?? this.progress,
       summaryNotes: summaryNotes ?? this.summaryNotes,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 
@@ -43,6 +50,7 @@ class Chapter {
       date: (map['date'] as Timestamp?)?.toDate(),
       progress: (map['progress'] as num?)?.toInt() ?? 0,
       summaryNotes: map['summaryNotes'] as String? ?? '',
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -52,6 +60,7 @@ class Chapter {
       'date': date != null ? Timestamp.fromDate(date!) : null,
       'progress': progress,
       'summaryNotes': summaryNotes,
+      if (createdAt != null) 'createdAt': Timestamp.fromDate(createdAt!),
     };
   }
 }

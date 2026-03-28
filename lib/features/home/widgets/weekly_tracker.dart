@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:exam_ace/core/settings/metric_formula_mode.dart';
 import 'package:exam_ace/core/theme/app_colors.dart';
 import 'package:exam_ace/features/home/providers/tasks_provider.dart';
 
@@ -183,9 +184,12 @@ class _StreakBadgeState extends State<_StreakBadge>
   }
 }
 
-/// Week **summary ribbon** (replaces tide) + **surf** bars. Tap a weekday to select
+/// Week **summary ribbon** + **surf** chart (wave bars + cityscape). Tap a weekday to select
 /// that day (see [onDaySelected]).
 class WeeklyTracker extends StatelessWidget {
+  /// Monday 00:00 of the week shown.
+  final DateTime weekMonday;
+
   final Map<String, double> completions;
   final WeeklySurfData surfData;
   final WeekOverWeekStats weekOverWeek;
@@ -195,8 +199,21 @@ class WeeklyTracker extends StatelessWidget {
   final DateTime today;
   final ValueChanged<DateTime> onDaySelected;
 
+  final VoidCallback? onWeekBefore;
+  final VoidCallback? onWeekAfter;
+  final bool canGoWeekBefore;
+  final bool canGoWeekAfter;
+
+  /// When [onMetricsToggle] is non-null, ribbon + chart + footer can collapse to save space.
+  final bool metricsExpanded;
+  final ValueChanged<bool>? onMetricsToggle;
+
+  /// Which formula drives [surfData.weekMetricRatio] (ribbon headline %).
+  final MetricFormulaMode metricFormula;
+
   const WeeklyTracker({
     super.key,
+    required this.weekMonday,
     required this.completions,
     required this.surfData,
     required this.weekOverWeek,
@@ -204,28 +221,19 @@ class WeeklyTracker extends StatelessWidget {
     required this.selectedDate,
     required this.today,
     required this.onDaySelected,
+    required this.metricFormula,
+    this.onWeekBefore,
+    this.onWeekAfter,
+    this.canGoWeekBefore = false,
+    this.canGoWeekAfter = false,
+    this.metricsExpanded = true,
+    this.onMetricsToggle,
   });
-
-  static double _weekAverage(Map<String, double> completions, DateTime today) {
-    final wd = today.weekday;
-    final monday =
-        DateTime(today.year, today.month, today.day).subtract(Duration(days: wd - 1));
-    double sum = 0;
-    for (var i = 0; i < 7; i++) {
-      final date = monday.add(Duration(days: i));
-      final key = dateKey(date);
-      sum += (completions[key] ?? 0.0).clamp(0.0, 1.0);
-    }
-    return sum / 7.0;
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final wd = today.weekday;
-    final monday =
-        DateTime(today.year, today.month, today.day)
-            .subtract(Duration(days: wd - 1));
+    final monday = DateUtils.dateOnly(weekMonday);
 
     final days = List.generate(7, (i) {
       final date = monday.add(Duration(days: i));
@@ -243,15 +251,28 @@ class WeeklyTracker extends StatelessWidget {
       );
     });
 
+    var todayColumnIndex = -1;
+    final todayOnly = DateUtils.dateOnly(today);
+    for (var i = 0; i < 7; i++) {
+      if (DateUtils.isSameDay(monday.add(Duration(days: i)), todayOnly)) {
+        todayColumnIndex = i;
+        break;
+      }
+    }
+
+    final sel = DateUtils.dateOnly(selectedDate);
     var selectedIndex = -1;
     for (var i = 0; i < 7; i++) {
-      if (DateUtils.isSameDay(days[i].fullDate, selectedDate)) {
+      if (DateUtils.isSameDay(days[i].fullDate, sel)) {
         selectedIndex = i;
         break;
       }
     }
+    // If the selected calendar date isn’t in this Mon–Sun strip (shouldn’t
+    // happen when Home passes a normalized date), align to the same weekday
+    // column instead of defaulting to Monday (index 0).
     if (selectedIndex < 0) {
-      selectedIndex = today.weekday - 1;
+      selectedIndex = (sel.weekday - 1).clamp(0, 6);
     }
 
     final values = surfData.heights.length == 7
@@ -260,44 +281,184 @@ class WeeklyTracker extends StatelessWidget {
     final taskTotals = surfData.taskTotalsPerDay.length == 7
         ? surfData.taskTotalsPerDay
         : List<int>.filled(7, 0);
-    final completedPerDay = surfData.completedPerDay.length == 7
-        ? surfData.completedPerDay
+    final completedCountPerDay = surfData.completedCountPerDay.length == 7
+        ? surfData.completedCountPerDay
         : List<int>.filled(7, 0);
-    final avgFill = _weekAverage(completions, today);
+    final progressSumPerDay = surfData.progressSumPerDay.length == 7
+        ? surfData.progressSumPerDay
+        : List<int>.filled(7, 0);
+    final ribbonProgressRatio = surfData.weekMetricRatio;
     final colorScheme = theme.colorScheme;
+    final currentWeekMonday = DateUtils.dateOnly(
+      today.subtract(Duration(days: today.weekday - 1)),
+    );
+    final isCurrentCalendarWeek =
+        DateUtils.isSameDay(monday, currentWeekMonday);
+    final weekSunday = monday.add(const Duration(days: 6));
+
+    final hasWeekNav = onWeekBefore != null || onWeekAfter != null;
+
+    final titleText = isCurrentCalendarWeek
+        ? 'This week'
+        : '${monday.month}/${monday.day}–${weekSunday.month}/${weekSunday.day}';
+
+    final titleStyle = theme.textTheme.titleMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+    );
+
+    final showMetrics = onMetricsToggle == null ? true : metricsExpanded;
+
+    final Widget? metricsToggle = onMetricsToggle == null
+        ? null
+        : Semantics(
+            button: true,
+            label: 'Week stats',
+            hint: metricsExpanded
+                ? 'Hides the weekly progress summary and surf chart'
+                : 'Shows the weekly progress summary and surf chart',
+            child: Tooltip(
+              message: metricsExpanded
+                  ? 'Hide weekly progress & surf chart'
+                  : 'Show weekly progress & surf chart',
+              child: FilterChip(
+                avatar: Icon(
+                  Icons.insights_outlined,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+                label: Text(
+                  'Week stats',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                selected: metricsExpanded,
+                onSelected: (on) => onMetricsToggle!(on),
+                showCheckmark: false,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+              ),
+            ),
+          );
+
+    final streakAndCalendar = Row(
+      children: [
+        _StreakBadge(
+          streak: streak,
+          colorScheme: colorScheme,
+          theme: theme,
+        ),
+        const Spacer(),
+        if (metricsToggle != null) metricsToggle,
+        IconButton(
+          onPressed: () => context.push('/calendar'),
+          icon: Icon(
+            Icons.calendar_month_rounded,
+            color: colorScheme.primary,
+          ),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.transparent,
+          ),
+          tooltip: 'View calendar',
+        ),
+      ],
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              'This Week',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+        if (hasWeekNav) ...[
+          Row(
+            children: [
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: onWeekBefore != null && canGoWeekBefore
+                    ? IconButton(
+                        onPressed: onWeekBefore,
+                        icon: Icon(
+                          Icons.chevron_left_rounded,
+                          color: colorScheme.primary,
+                        ),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                        ),
+                        tooltip: 'Previous week',
+                      )
+                    : null,
               ),
-            ),
-            const SizedBox(width: 10),
-            _StreakBadge(
-              streak: streak,
-              colorScheme: colorScheme,
-              theme: theme,
-            ),
-            const Spacer(),
-            IconButton(
-              onPressed: () => context.push('/calendar'),
-              icon: Icon(
-                Icons.calendar_month_rounded,
-                color: colorScheme.primary,
+              Expanded(
+                child: Text(
+                  titleText,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: titleStyle,
+                ),
               ),
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.transparent,
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: onWeekAfter != null && canGoWeekAfter
+                    ? IconButton(
+                        onPressed: onWeekAfter,
+                        icon: Icon(
+                          Icons.chevron_right_rounded,
+                          color: colorScheme.primary,
+                        ),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                        ),
+                        tooltip: 'Next week',
+                      )
+                    : null,
               ),
-              tooltip: 'View calendar',
-            ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          streakAndCalendar,
+        ] else
+          Row(
+            children: [
+              Text(
+                titleText,
+                style: titleStyle,
+              ),
+              const SizedBox(width: 10),
+              _StreakBadge(
+                streak: streak,
+                colorScheme: colorScheme,
+                theme: theme,
+              ),
+              const Spacer(),
+              if (metricsToggle != null) metricsToggle,
+              IconButton(
+                onPressed: () => context.push('/calendar'),
+                icon: Icon(
+                  Icons.calendar_month_rounded,
+                  color: colorScheme.primary,
+                ),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                ),
+                tooltip: 'View calendar',
+              ),
+            ],
+          ),
         const SizedBox(height: 10),
+        if (!showMetrics && onMetricsToggle != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              'Tap Week stats above to see your weekly progress and chart.',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
         LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth;
@@ -306,32 +467,37 @@ class WeeklyTracker extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _WeekSummaryRibbon(
-                  avgRatio: avgFill.clamp(0.0, 1.0),
-                  completed: surfData.weekCompletedTotal,
-                  total: surfData.weekTaskTotal,
-                  weekOverWeek: weekOverWeek,
-                  colorScheme: colorScheme,
-                ),
-                const SizedBox(height: 10),
+                if (showMetrics) ...[
+                  _WeekSummaryRibbon(
+                    avgRatio: ribbonProgressRatio.clamp(0.0, 1.0),
+                    progressSum: surfData.weekProgressSum,
+                    progressCap: surfData.weekProgressCap,
+                    weekOverWeek: weekOverWeek,
+                    colorScheme: colorScheme,
+                    metricFormula: metricFormula,
+                  ),
+                  const SizedBox(height: 10),
                 _AnimatedSurfChart(
                   width: w,
                   height: surfHeight,
                   values: values,
                   taskTotalsPerDay: taskTotals,
-                  completedPerDay: completedPerDay,
-                  todayIndex:
-                      days.indexWhere((d) => d.isToday).clamp(0, 6),
+                  completedCountPerDay: completedCountPerDay,
+                  progressSumPerDay: progressSumPerDay,
+                  weekMonday: monday,
+                  today: DateUtils.dateOnly(today),
+                  todayIndex: todayColumnIndex,
                   selectedIndex: selectedIndex,
                   primary: colorScheme.primary,
                   sand: colorScheme.surfaceContainerHigh,
                   borderColor: colorScheme.outlineVariant,
-                  barFill: colorScheme.primary.withValues(alpha: 0.42),
-                  barToday: colorScheme.primary.withValues(alpha: 0.72),
-                  barSelected: colorScheme.primary.withValues(alpha: 0.92),
+                  barFill: colorScheme.primary.withValues(alpha: 1),
+                  barToday: colorScheme.primary.withValues(alpha: 1),
+                  barSelected: colorScheme.primary.withValues(alpha: 1),
                 ),
+                ],
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: EdgeInsets.only(top: showMetrics ? 8 : 0),
                   child: Row(
                     children: List.generate(7, (i) {
                       final d = days[i];
@@ -453,16 +619,18 @@ class WeeklyTracker extends StatelessWidget {
                     }),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  avgFill < 0.02
-                      ? 'Add tasks this week — surf bars will grow'
-                      : 'Ribbon = week average & totals · surf = relative effort per day',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                if (showMetrics) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    ribbonProgressRatio < 0.02
+                        ? 'Add tasks this week — surf bars will grow'
+                        : 'Ribbon = weekly progress · surf = load vs week (done = solid, broken = unfinished)',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                ],
               ],
             );
           },
@@ -498,26 +666,28 @@ class _DayData {
 /// Replaces the old “tide” pool: one row of **numbers** (avg % + tasks done / scheduled).
 class _WeekSummaryRibbon extends StatelessWidget {
   final double avgRatio;
-  final int completed;
-  final int total;
+  final int progressSum;
+  final int progressCap;
   final WeekOverWeekStats weekOverWeek;
   final ColorScheme colorScheme;
+  final MetricFormulaMode metricFormula;
 
   const _WeekSummaryRibbon({
     required this.avgRatio,
-    required this.completed,
-    required this.total,
+    required this.progressSum,
+    required this.progressCap,
     required this.weekOverWeek,
     required this.colorScheme,
+    required this.metricFormula,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final pct = (avgRatio * 100).round();
+    final pctOneDecimal = (avgRatio * 100).toStringAsFixed(1);
     final rounded = weekOverWeek.deltaPctPoints.round();
     final sameWeek =
-        weekOverWeek.canCompareLastWeek && rounded.abs() < 1;
+        weekOverWeek.canShowWeekOverWeekComparison && rounded.abs() < 1;
     final growthColor = theme.brightness == Brightness.dark
         ? Colors.green.shade400
         : Colors.green.shade700;
@@ -544,7 +714,7 @@ class _WeekSummaryRibbon extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Week average',
+                  'Week progress',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -553,16 +723,27 @@ class _WeekSummaryRibbon extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$pct% complete',
+                  '$pctOneDecimal% complete',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: colorScheme.onSurface,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  metricFormula.ribbonShort,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
                 const SizedBox(height: 6),
-                if (!weekOverWeek.canCompareLastWeek)
+                if (!weekOverWeek.canShowWeekOverWeekComparison)
                   Text(
-                    'No tasks last week to compare',
+                    weekOverWeek.thisWeekTaskTotal == 0
+                        ? 'Nothing scheduled this week'
+                        : 'No tasks last week to compare',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       height: 1.25,
@@ -623,7 +804,7 @@ class _WeekSummaryRibbon extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                'Tasks',
+                'Progress',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
@@ -631,7 +812,9 @@ class _WeekSummaryRibbon extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '$completed / $total done',
+                progressCap == 0
+                    ? '—'
+                    : '$progressSum / $progressCap',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: colorScheme.primary,
@@ -645,13 +828,18 @@ class _WeekSummaryRibbon extends StatelessWidget {
   }
 }
 
-/// Grows surf bars / fades dots in when data changes or on first layout.
 class _AnimatedSurfChart extends StatefulWidget {
   final double width;
   final double height;
   final List<double> values;
   final List<int> taskTotalsPerDay;
-  final List<int> completedPerDay;
+  final List<int> completedCountPerDay;
+  /// Per-day sum of task progress (0–100 each); used to treat “100%” like all done.
+  final List<int> progressSumPerDay;
+  /// Monday 00:00 of the visible week (date-only).
+  final DateTime weekMonday;
+  /// Calendar “today” for past vs current day (date-only).
+  final DateTime today;
   final int todayIndex;
   final int selectedIndex;
   final Color primary;
@@ -666,7 +854,10 @@ class _AnimatedSurfChart extends StatefulWidget {
     required this.height,
     required this.values,
     required this.taskTotalsPerDay,
-    required this.completedPerDay,
+    required this.completedCountPerDay,
+    required this.progressSumPerDay,
+    required this.weekMonday,
+    required this.today,
     required this.todayIndex,
     required this.selectedIndex,
     required this.primary,
@@ -686,6 +877,10 @@ class _AnimatedSurfChartState extends State<_AnimatedSurfChart>
   late AnimationController _entranceController;
   /// Drones + sweep lights above the “city” (continuous motion).
   late AnimationController _birdMotionController;
+  /// Roof workers: beam lift + sway (faster loop than drones so it reads as “building”).
+  late AnimationController _constructionController;
+  /// Rooftop sentinels: patrol back-and-forth along the building crest.
+  late AnimationController _sentinelPatrolController;
 
   @override
   void initState() {
@@ -698,6 +893,14 @@ class _AnimatedSurfChartState extends State<_AnimatedSurfChart>
       vsync: this,
       duration: const Duration(seconds: 20),
     )..repeat();
+    _constructionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat();
+    _sentinelPatrolController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 30000),
+    )..repeat();
   }
 
   @override
@@ -705,7 +908,12 @@ class _AnimatedSurfChartState extends State<_AnimatedSurfChart>
     super.didUpdateWidget(oldWidget);
     if (!listEquals(widget.values, oldWidget.values) ||
         !listEquals(widget.taskTotalsPerDay, oldWidget.taskTotalsPerDay) ||
-        !listEquals(widget.completedPerDay, oldWidget.completedPerDay)) {
+        !listEquals(
+            widget.completedCountPerDay, oldWidget.completedCountPerDay) ||
+        !listEquals(
+            widget.progressSumPerDay, oldWidget.progressSumPerDay) ||
+        widget.weekMonday != oldWidget.weekMonday ||
+        widget.today != oldWidget.today) {
       _entranceController.forward(from: 0);
     }
   }
@@ -714,6 +922,8 @@ class _AnimatedSurfChartState extends State<_AnimatedSurfChart>
   void dispose() {
     _entranceController.dispose();
     _birdMotionController.dispose();
+    _constructionController.dispose();
+    _sentinelPatrolController.dispose();
     super.dispose();
   }
 
@@ -723,6 +933,8 @@ class _AnimatedSurfChartState extends State<_AnimatedSurfChart>
       animation: Listenable.merge([
         _entranceController,
         _birdMotionController,
+        _constructionController,
+        _sentinelPatrolController,
       ]),
       builder: (context, child) {
         final t = Curves.easeOutCubic.transform(_entranceController.value);
@@ -733,7 +945,10 @@ class _AnimatedSurfChartState extends State<_AnimatedSurfChart>
             painter: _SurfPainter(
               values: widget.values,
               taskTotalsPerDay: widget.taskTotalsPerDay,
-              completedPerDay: widget.completedPerDay,
+              completedCountPerDay: widget.completedCountPerDay,
+              progressSumPerDay: widget.progressSumPerDay,
+              weekMonday: widget.weekMonday,
+              today: widget.today,
               todayIndex: widget.todayIndex,
               selectedIndex: widget.selectedIndex,
               primary: widget.primary,
@@ -744,6 +959,8 @@ class _AnimatedSurfChartState extends State<_AnimatedSurfChart>
               barSelected: widget.barSelected,
               heightFactor: t,
               birdTime: _birdMotionController.value,
+              constructPhase: _constructionController.value,
+              patrolPhase: _sentinelPatrolController.value,
             ),
           ),
         );
@@ -756,7 +973,10 @@ class _AnimatedSurfChartState extends State<_AnimatedSurfChart>
 class _SurfPainter extends CustomPainter {
   final List<double> values;
   final List<int> taskTotalsPerDay;
-  final List<int> completedPerDay;
+  final List<int> completedCountPerDay;
+  final List<int> progressSumPerDay;
+  final DateTime weekMonday;
+  final DateTime today;
   final int todayIndex;
   final int selectedIndex;
   final Color primary;
@@ -767,11 +987,18 @@ class _SurfPainter extends CustomPainter {
   final Color barSelected;
   final double heightFactor;
   final double birdTime;
+  /// \[0,1) — repeating construction cycle (beam lift, sway); independent of [birdTime].
+  final double constructPhase;
+  /// \[0,1) — rooftop sentinel patrol along crest (one full out-and-back per loop).
+  final double patrolPhase;
 
   _SurfPainter({
     required this.values,
     required this.taskTotalsPerDay,
-    required this.completedPerDay,
+    required this.completedCountPerDay,
+    required this.progressSumPerDay,
+    required this.weekMonday,
+    required this.today,
     required this.todayIndex,
     required this.selectedIndex,
     required this.primary,
@@ -782,6 +1009,8 @@ class _SurfPainter extends CustomPainter {
     required this.barSelected,
     this.heightFactor = 1.0,
     this.birdTime = 0.0,
+    required this.constructPhase,
+    required this.patrolPhase,
   });
 
   static const _minBarPx = 14.0;
@@ -818,6 +1047,8 @@ class _SurfPainter extends CustomPainter {
   void _paintSurf(Canvas canvas, Rect surfRect) {
     if (values.length != 7) return;
 
+    _paintGroundSkyline(canvas, surfRect);
+
     final n = 7;
     final gap = 4.0;
     final cellW = (surfRect.width - gap * (n - 1)) / n;
@@ -827,7 +1058,7 @@ class _SurfPainter extends CustomPainter {
       final cell = Rect.fromLTWH(left, surfRect.top, cellW, surfRect.height);
       final v = values[i].clamp(0.0, 1.0);
       final isSelected = i == selectedIndex;
-      final isToday = i == todayIndex;
+      final isToday = todayIndex >= 0 && i == todayIndex;
       final tasksOnDay =
           i < taskTotalsPerDay.length ? taskTotalsPerDay[i] : 0;
       if (tasksOnDay == 0) {
@@ -848,19 +1079,50 @@ class _SurfPainter extends CustomPainter {
 
       var fillH = cell.height * v * 0.94 * heightFactor;
       final minScaled = _minBarPx * heightFactor;
-      final doneOnDay =
-          i < completedPerDay.length ? completedPerDay[i] : 0;
-      if (tasksOnDay > 0 && doneOnDay == 0) {
-        fillH = minScaled;
-      } else if (fillH > 0 && fillH < minScaled) {
+      final completedOnDay =
+          i < completedCountPerDay.length ? completedCountPerDay[i] : 0;
+      final sumDay =
+          i < progressSumPerDay.length ? progressSumPerDay[i] : 0;
+      final allTasksDone = tasksOnDay > 0 &&
+          (completedOnDay >= tasksOnDay || sumDay >= tasksOnDay * 100);
+      final buildingInProgress = tasksOnDay > 0 && !allTasksDone;
+      final isTodayColumn = todayIndex >= 0 && i == todayIndex;
+      final incompleteOnDay = tasksOnDay - completedOnDay;
+      final weekStart = DateUtils.dateOnly(weekMonday);
+      final todayOnly = DateUtils.dateOnly(today);
+      final columnDate = weekStart.add(Duration(days: i));
+      // Damage (x vs y) only for **past** calendar days — today/future still “in progress”.
+      final isPastCalendarDay = columnDate.isBefore(todayOnly);
+      var devastated = false;
+      var crackIntensity = 0.0;
+      if (isPastCalendarDay && tasksOnDay > 0) {
+        devastated = (completedOnDay == 0 && tasksOnDay > 0) ||
+            (completedOnDay > 0 && completedOnDay <= incompleteOnDay);
+        crackIntensity = devastated
+            ? 0.0
+            : (completedOnDay > 0 && completedOnDay > incompleteOnDay)
+                ? (incompleteOnDay / tasksOnDay).clamp(0.0, 1.0)
+                : 0.0;
+      }
+
+      if (fillH > 0 && fillH < minScaled) {
         fillH = minScaled;
       }
-      if (doneOnDay >= 1) {
+      if ((completedOnDay >= 1 || sumDay >= tasksOnDay * 100) && !devastated) {
         fillH = math.max(
           fillH,
           _minBuildingWhenCompletePx * heightFactor,
         );
       }
+
+      // No completed tasks yet → no building stack (today/future use completion-only heights).
+      if (fillH <= 0) {
+        if (!devastated && isTodayColumn && buildingInProgress) {
+          _paintRoofConstructors(canvas, Path(), cell, i);
+        }
+        continue;
+      }
+
       final bottom = cell.bottom - 2;
       final topBase = bottom - fillH;
       final Color fillCol =
@@ -889,8 +1151,18 @@ class _SurfPainter extends CustomPainter {
         fillCol,
         isSelected,
         isToday,
+        devastated: devastated,
+        crackIntensity: crackIntensity,
+        dayIndex: i,
       );
-      _paintRoofSentinels(canvas, path, cell, i);
+      if (!devastated) {
+        if (isTodayColumn && buildingInProgress) {
+          _paintRoofConstructors(canvas, path, cell, i);
+        } else if (allTasksDone && tasksOnDay > 0) {
+          // Soldiers only when every task for that day is done (past or future included).
+          _paintRoofSentinels(canvas, path, cell, i);
+        }
+      }
     }
 
     _paintBirds(canvas, surfRect);
@@ -907,7 +1179,55 @@ class _SurfPainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, Offset(surfRect.left + 4, surfRect.top + 2));
+    canvas.save();
+    try {
+      tp.paint(canvas, Offset(surfRect.left + 4, surfRect.top + 2));
+    } finally {
+      canvas.restore();
+    }
+  }
+
+  /// Distant buildings + horizon along the bottom of the surf (drawn behind columns).
+  void _paintGroundSkyline(Canvas canvas, Rect surfRect) {
+    if (surfRect.height < 8 || surfRect.width < 8) return;
+    final dark = sand.computeLuminance() < 0.45;
+    final bandH = math.min(14.0, surfRect.height * 0.22).clamp(5.0, 16.0);
+    final baseY = surfRect.bottom - 1;
+    final lineCol = Color.lerp(sand, primary, dark ? 0.24 : 0.15)!
+        .withValues(alpha: 1);
+    final horizon = Paint()
+      ..color = lineCol
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.square;
+    canvas.drawLine(
+      Offset(surfRect.left, baseY),
+      Offset(surfRect.right, baseY),
+      horizon,
+    );
+
+    final sil = Color.lerp(sand, primary, dark ? 0.38 : 0.22)!
+        .withValues(alpha: 1);
+    var x = surfRect.left;
+    while (x < surfRect.right - 1) {
+      final t = x * 0.173 + surfRect.width * 0.07;
+      final h = 2.5 + (math.sin(t) * 0.5 + 0.5) * (bandH - 3);
+      final w = 1.4 + (math.cos(t * 1.63) * 0.5 + 0.5) * 3.2;
+      canvas.drawRect(
+        Rect.fromLTWH(x, baseY - h, w, h),
+        Paint()..color = sil,
+      );
+      x += w + 0.65 + (math.sin(x * 0.29 + 0.9) * 0.5 + 0.5) * 2.2;
+    }
+
+    final haze = Color.lerp(sand, primary, dark ? 0.12 : 0.08)!
+        .withValues(alpha: 1);
+    canvas.drawLine(
+      Offset(surfRect.left, baseY - bandH * 0.55),
+      Offset(surfRect.right, baseY - bandH * 0.55),
+      Paint()
+        ..color = haze
+        ..strokeWidth = 0.65,
+    );
   }
 
   void _paintBuildingSurfColumn(
@@ -916,18 +1236,26 @@ class _SurfPainter extends CustomPainter {
     Path surfPath,
     Color accent,
     bool isSelected,
-    bool isToday,
-  ) {
-    final mix = isSelected ? 0.58 : (isToday ? 0.48 : 0.34);
-    final facade = Color.lerp(sand, accent, mix)!;
-    final roof = Color.lerp(
+    bool isToday, {
+    required bool devastated,
+    required double crackIntensity,
+    required int dayIndex,
+  }) {
+    final mix = isSelected ? 0.58 : (isToday ? 0.58 : 0.34);
+    var facade = Color.lerp(sand, accent, mix)!;
+    var roof = Color.lerp(
       facade,
       primary,
-      isSelected ? 0.22 : 0.14,
+      isSelected ? 0.22 : (isToday ? 0.2 : 0.14),
     )!;
-    final sill = Color.lerp(primary, sand, 0.55)!.withValues(alpha: 0.9);
+    if (devastated) {
+      facade = Color.lerp(facade, const Color(0xFF6B6966), 0.38)!;
+      roof = Color.lerp(roof, const Color(0xFF4A4845), 0.45)!;
+    }
+    final sill = Color.lerp(primary, sand, 0.55)!.withValues(alpha: 1);
 
     canvas.save();
+    try {
     canvas.clipPath(surfPath);
 
     canvas.drawPath(
@@ -939,47 +1267,101 @@ class _SurfPainter extends CustomPainter {
           colors: [
             roof,
             facade,
-            Color.lerp(facade, sand, 0.12)!,
+            Color.lerp(facade, sand, isToday ? 0.07 : 0.12)!,
           ],
           stops: const [0.0, 0.52, 1.0],
         ).createShader(cell),
     );
 
     final bounds = surfPath.getBounds();
+
+    if (devastated) {
+      _paintCollapseDustAndShadow(canvas, bounds);
+    }
+
     final winW = 3.2;
     final winH = 6.0;
     final gapX = 4.0;
     final gapY = 7.0;
     final winFill = Color.lerp(primary, sand, 0.72)!
-        .withValues(alpha: 0.38);
-    final winGlow = primary.withValues(alpha: 0.55);
+        .withValues(alpha: devastated ? 0.12 : 1);
+    final winGlow = primary.withValues(
+      alpha: devastated ? 0.12 : 1,
+    );
     var y = bounds.top + 5;
+    var row = 0;
     while (y + winH < bounds.bottom - 6) {
       var x = bounds.left + 4;
+      var col = 0;
       while (x + winW < bounds.right - 4) {
-        final win = RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, y, winW, winH),
-          const Radius.circular(0.8),
-        );
-        canvas.drawRRect(
-          win,
-          Paint()..color = winFill,
-        );
-        canvas.drawRRect(
-          win,
-          Paint()
-            ..color = winGlow
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 0.65,
-        );
+        final skip = devastated &&
+            ((dayIndex + row + col) % 7 == 0 || (dayIndex + row * 3 + col) % 11 == 0);
+        if (!skip) {
+          if (devastated) {
+            _paintCollapsedWindowShard(canvas, x, y, winW, winH, row, col);
+          } else {
+            final win = RRect.fromRectAndRadius(
+              Rect.fromLTWH(x, y, winW, winH),
+              const Radius.circular(0.8),
+            );
+            canvas.drawRRect(
+              win,
+              Paint()..color = winFill,
+            );
+            canvas.drawRRect(
+              win,
+              Paint()
+                ..color = winGlow
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 0.65,
+            );
+          }
+        }
         x += winW + gapX;
+        col++;
       }
       y += winH + gapY;
+      row++;
+    }
+
+    if (devastated) {
+      _paintCollapsedRoofSlab(canvas, bounds, dayIndex);
+      _paintRubblePile(canvas, bounds, dayIndex);
+      _paintCollapseFractures(canvas, bounds, dayIndex);
+    } else if (crackIntensity > 0.02) {
+      _paintFacadeCracks(canvas, bounds, crackIntensity, dayIndex);
+    }
+
+    // Ground-level bands so the base reads like a street / foundation, not a flat fill.
+    if (!devastated && bounds.height > 14) {
+      final g = Color.lerp(facade, primary, 0.06)!
+          .withValues(alpha: 1);
+      final groundLine = Paint()
+        ..color = g
+        ..strokeWidth = 0.6
+        ..strokeCap = StrokeCap.round;
+      final yBase = bounds.bottom - 1.8;
+      final yMid = bounds.bottom - 4.2;
+      canvas.drawLine(
+        Offset(bounds.left + 1.4, yBase),
+        Offset(bounds.right - 1.4, yBase),
+        groundLine,
+      );
+      if (bounds.width > 16) {
+        canvas.drawLine(
+          Offset(bounds.left + 1.4, yMid),
+          Offset(bounds.right - 1.4, yMid),
+          Paint()
+            ..color = g
+            ..strokeWidth = 0.45
+            ..strokeCap = StrokeCap.round,
+        );
+      }
     }
 
     // Subtle vertical edge lines for masonry / corner depth.
     final edge = Paint()
-      ..color = sill.withValues(alpha: 0.35)
+      ..color = sill.withValues(alpha: devastated ? 0.22 : 1)
       ..strokeWidth = 0.85;
     canvas.drawLine(
       Offset(bounds.left + 1.2, bounds.top + 2),
@@ -991,16 +1373,298 @@ class _SurfPainter extends CustomPainter {
       Offset(bounds.right - 1.2, bounds.bottom - 2),
       edge,
     );
-    canvas.restore();
+    } finally {
+      canvas.restore();
+    }
 
-    final strokeA = isSelected ? 0.62 : (isToday ? 0.48 : 0.3);
+    final strokeA = devastated
+        ? (isSelected ? 0.62 : (isToday ? 0.58 : 0.22))
+        : 1.0;
+    final strokeCol = devastated
+        ? Color.lerp(primary, const Color(0xFF3E2723), 0.55)!
+        : primary;
     canvas.drawPath(
       surfPath,
       Paint()
-        ..color = primary.withValues(alpha: strokeA.clamp(0.15, 0.85))
+        ..color = strokeCol.withValues(alpha: strokeA.clamp(0.15, 1.0))
         ..style = PaintingStyle.stroke
-        ..strokeWidth = isSelected ? 1.65 : (isToday ? 1.2 : 0.8),
+        ..strokeWidth = devastated
+            ? (isSelected ? 1.4 : 1.0)
+            : (isSelected ? 1.65 : (isToday ? 1.2 : 0.8)),
     );
+  }
+
+  /// Settled dust + deep shadow at the base (collapse aftermath).
+  void _paintCollapseDustAndShadow(Canvas canvas, Rect bounds) {
+    final h = bounds.height;
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            const Color(0xFF8C857E).withValues(alpha: 0.12),
+            const Color(0xFF5C5650).withValues(alpha: 0.28),
+          ],
+          stops: const [0.35, 0.72, 1.0],
+        ).createShader(bounds),
+    );
+    // clamp(lower, upper) requires lower <= upper; short buildings have h*0.5 < 12.
+    final maxDust = h * 0.5;
+    final minDust = math.min(12.0, maxDust);
+    final dustH = (h * 0.38).clamp(minDust, maxDust);
+    final dustRect = Rect.fromLTWH(
+      bounds.left,
+      bounds.bottom - dustH,
+      bounds.width,
+      dustH,
+    );
+    canvas.drawOval(
+      dustRect.inflate(2),
+      Paint()
+        ..shader = RadialGradient(
+          center: Alignment.bottomCenter,
+          radius: 1.05,
+          colors: [
+            const Color(0xFFB0AAA3).withValues(alpha: 0.35),
+            Colors.transparent,
+          ],
+        ).createShader(dustRect.inflate(4)),
+    );
+  }
+
+  /// Hanging / blown-out openings instead of neat X’s.
+  void _paintCollapsedWindowShard(
+    Canvas canvas,
+    double x,
+    double y,
+    double winW,
+    double winH,
+    int row,
+    int col,
+  ) {
+    final voidPaint = const Color(0xFF1E1C1A);
+    final jaggedTop = y + (col % 3) * 0.4;
+    final path = Path()
+      ..moveTo(x, jaggedTop + 1.2)
+      ..lineTo(x + winW * 0.35, y)
+      ..lineTo(x + winW * 0.72, y + 0.8)
+      ..lineTo(x + winW, jaggedTop + 0.4)
+      ..lineTo(x + winW, y + winH - 1)
+      ..lineTo(x + winW * 0.55, y + winH)
+      ..lineTo(x + winW * 0.2, y + winH - 0.6)
+      ..lineTo(x, y + winH - 1.2)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            voidPaint.withValues(alpha: 0.88),
+            const Color(0xFF3D3835).withValues(alpha: 0.92),
+          ],
+        ).createShader(Rect.fromLTWH(x, y, winW, winH)),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF0A0908).withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5,
+    );
+    if ((row + col) % 4 != 0) {
+      canvas.drawLine(
+        Offset(x + 1, y + winH * 0.55),
+        Offset(x + winW - 0.5, y + winH * 0.4),
+        Paint()
+          ..color = const Color(0xFF6D6560).withValues(alpha: 0.35)
+          ..strokeWidth = 0.45,
+      );
+    }
+  }
+
+  /// Missing / pancaked top slab — jagged silhouette (broken roofline).
+  void _paintCollapsedRoofSlab(Canvas canvas, Rect bounds, int dayIndex) {
+    final top = bounds.top;
+    final w = bounds.width;
+    final slab = Path()..moveTo(bounds.left, top + 2);
+    const seg = 8;
+    for (var s = 0; s <= seg; s++) {
+      final t = s / seg;
+      final x = bounds.left + t * w;
+      final dip = math.sin(t * math.pi * 4 + dayIndex) * 2.8 +
+          math.sin(dayIndex * 1.2 + s * 0.85) * 1.2;
+      slab.lineTo(x, top + 2 + dip.abs().clamp(0.0, 7.0));
+    }
+    slab
+      ..lineTo(bounds.right, top + 12)
+      ..lineTo(bounds.right, top + 14)
+      ..lineTo(bounds.left, top + 14)
+      ..close();
+    final roofRect = Rect.fromLTWH(bounds.left, top, w, 16);
+    canvas.drawPath(
+      slab,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFF2A2826),
+            const Color(0xFF4E4A47).withValues(alpha: 0.88),
+          ],
+        ).createShader(roofRect),
+    );
+    canvas.drawPath(
+      slab,
+      Paint()
+        ..color = const Color(0xFF1A1816).withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.55,
+    );
+  }
+
+  /// Concrete chunks and grit at the footprint.
+  void _paintRubblePile(Canvas canvas, Rect bounds, int dayIndex) {
+    final seed = dayIndex * 97;
+    final baseY = bounds.bottom - 2;
+    final n = 11 + (dayIndex % 4);
+    for (var i = 0; i < n; i++) {
+      final r = 1.1 + ((i * 17 + seed) % 5) * 0.35;
+      final span = math.max(4.0, bounds.width - 2 * r - 4);
+      final px = (bounds.left + r + 2 + (i * 19.0 + seed * 0.3) % span)
+          .clamp(bounds.left + r, bounds.right - r);
+      final py = baseY - r * 0.4 - (i % 3) * 0.8;
+      final grey = Color.lerp(
+        const Color(0xFF9A9590),
+        const Color(0xFF6F6B67),
+        ((i + seed) % 7) / 7.0,
+      )!;
+      canvas.drawOval(
+        Rect.fromCircle(center: Offset(px, py), radius: r),
+        Paint()..color = grey.withValues(alpha: 0.88),
+      );
+      canvas.drawOval(
+        Rect.fromCircle(center: Offset(px - 0.2, py - 0.15), radius: r * 0.85),
+        Paint()
+          ..color = const Color(0xFF3A3836).withValues(alpha: 0.22)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.4,
+      );
+    }
+  }
+
+  /// Vertical shear + staggered floor breaks (structural failure read).
+  void _paintCollapseFractures(Canvas canvas, Rect bounds, int dayIndex) {
+    final seed = dayIndex * 41 + 13;
+    final cx = bounds.left + bounds.width * (0.32 + 0.06 * math.sin(seed * 0.2));
+
+    final main = Path()..moveTo(cx, bounds.top + 5);
+    var yy = bounds.top + 5.0;
+    while (yy < bounds.bottom - 6) {
+      yy += 3.6;
+      final shear = math.sin(yy * 0.28 + seed) * 1.8 +
+          math.sin(seed * 0.5 + yy * 0.08) * 1.2;
+      main.lineTo(cx + shear, yy);
+    }
+    canvas.drawPath(
+      main,
+      Paint()
+        ..color = const Color(0xFF0F0E0D).withValues(alpha: 0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.05
+        ..strokeCap = StrokeCap.round,
+    );
+
+    for (var f = 0; f < 3; f++) {
+      final fy = bounds.top + bounds.height * (0.28 + f * 0.22);
+      final wobble = math.sin(seed + f * 2.1) * 3.5;
+      final fp = Path()
+        ..moveTo(bounds.left + 4 + wobble, fy)
+        ..quadraticBezierTo(
+          bounds.left + bounds.width * 0.5,
+          fy + 1.2,
+          bounds.right - 4 + wobble * 0.5,
+          fy - 0.8,
+        );
+      canvas.drawPath(
+        fp,
+        Paint()
+          ..color = const Color(0xFF1C1A18).withValues(alpha: 0.42)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.65
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+
+    final rebarY = bounds.top + bounds.height * 0.44;
+    canvas.drawLine(
+      Offset(bounds.left + 5, rebarY),
+      Offset(bounds.right - 5, rebarY + 0.6),
+      Paint()
+        ..color = const Color(0xFF8B7355).withValues(alpha: 0.35)
+        ..strokeWidth = 0.35,
+    );
+  }
+
+  /// **x > y** (ahead on tasks): structural stress — warm/primary hairlines + floor splits.
+  /// Distinct from **collapse** (black rubble, dust, vertical shear) on devastated days.
+  void _paintFacadeCracks(Canvas canvas, Rect bounds, double intensity, int dayIndex) {
+    final seed = dayIndex * 29;
+    final stress = Color.lerp(primary, const Color(0xFF6D4C41), 0.28)!;
+    final nVert = (2 + intensity * 3).round().clamp(2, 6);
+    final w = bounds.width - 8;
+    for (var k = 0; k < nVert; k++) {
+      final path = Path();
+      final x0 = bounds.left + 4 + ((k + 0.5) / nVert) * w;
+      path.moveTo(x0, bounds.top + 5);
+      var yy = bounds.top + 5.0;
+      while (yy < bounds.bottom - 4) {
+        yy += 3.8;
+        final j = math.sin(yy * 0.32 + seed + k * 1.4) * 1.05;
+        path.lineTo(x0 + j, yy);
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = stress.withValues(alpha: 0.5 + 0.28 * intensity)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.72 + intensity * 0.45
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+    for (var h = 0; h < 3; h++) {
+      final fy = bounds.top + bounds.height * (0.2 + h * 0.27);
+      final path = Path()..moveTo(bounds.left + 3, fy);
+      for (var s = 0; s <= 14; s++) {
+        final t = s / 14;
+        final x = bounds.left + 3 + t * (bounds.width - 6);
+        path.lineTo(x, fy + math.sin(t * math.pi * 5 + seed + h * 2.1) * 1.35);
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = stress.withValues(alpha: 0.38 + 0.22 * intensity)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.55 + intensity * 0.3,
+      );
+    }
+  }
+
+  /// Roof ridge Y at [worldX]; must stay in sync with `_paintSurf` top edge (`curl = sin(t*pi)*2.15`).
+  double _roofRidgeYAt(Rect columnBounds, double worldX) {
+    final w = columnBounds.width;
+    if (w <= 0) return columnBounds.top;
+    final t = ((worldX - columnBounds.left) / w).clamp(0.0, 1.0);
+    return columnBounds.top + math.sin(t * math.pi) * 2.15;
+  }
+
+  /// Pelvis origin Y so foot bottoms sit on the roof ridge (local feet at +0.42*scale).
+  double _hipYOnRoofRidge(Rect columnBounds, double worldX, double scale) {
+    return _roofRidgeYAt(columnBounds, worldX) - 0.42 * scale;
   }
 
   /// Stylized rooftop figures (game-style silhouettes) on building crests.
@@ -1010,18 +1674,42 @@ class _SurfPainter extends CustomPainter {
     Rect cell,
     int dayIndex,
   ) {
-    if (heightFactor < 0.08) return;
+    // Match constructor visibility during the entrance animation (was 0.08 — soldiers
+    // stayed hidden after the work-in-progress → all-done transition).
+    if (heightFactor < 0.02) return;
     final bounds = buildingPath.getBounds();
     if (bounds.height < 18 || bounds.width < 10) return;
 
-    final scale = (cell.width * 0.052 * heightFactor).clamp(2.8, 5.2);
-    final footY = bounds.top + scale * 0.42;
-    final n = bounds.width > 28 ? 2 : 1;
-    final step = bounds.width / (n + 1);
+    final visFactor = math.max(heightFactor, 0.52);
+    final scale = (cell.width * 0.086 * visFactor).clamp(4.8, 9.8);
+    final n = bounds.width > 36 ? 2 : 1;
+    final margin = scale * 0.48;
+    final walkL = bounds.left + margin;
+    final walkR = bounds.right - margin;
+    final span = math.max(4.0, walkR - walkL);
+
+    double tri01(double p) {
+      final x = p - p.floorToDouble();
+      return x < 0.5 ? 2 * x : 2 - 2 * x;
+    }
+
+    /// First half of [0,1) phase: position moves left→right along span.
+    bool walkingRightHalf(double p) {
+      final x = p - p.floorToDouble();
+      return x < 0.5;
+    }
 
     for (var g = 0; g < n; g++) {
-      final cx = bounds.left + step * (g + 1);
-      final faceRight = (dayIndex + g).isEven;
+      final tri = tri01(patrolPhase);
+      // Left figure: walk right then back left. Right figure: opposite phase (starts toward −x).
+      final frac = g == 0 ? tri : 1.0 - tri;
+      final cx = walkL + frac * span;
+      final faceRight = g == 0 ? walkingRightHalf(patrolPhase) : !walkingRightHalf(patrolPhase);
+      // Slower leg cycle (~1.5 strides per patrol lap) + gentle bounce on weight shifts.
+      final stridePhase =
+          patrolPhase * 2 * math.pi * 1.5 + g * 0.85 + dayIndex * 0.12;
+      final bob = 0.038 * scale * (0.5 + 0.5 * math.sin(stridePhase * 2));
+      final footY = _hipYOnRoofRidge(bounds, cx, scale) + bob;
       final aimSway =
           0.2 * math.sin(birdTime * math.pi * 2 * 0.55 + dayIndex * 0.7 + g * 1.1);
       _drawRoofSentinel(
@@ -1030,6 +1718,7 @@ class _SurfPainter extends CustomPainter {
         faceRight: faceRight,
         scale: scale,
         aimSway: aimSway,
+        stridePhase: stridePhase,
       );
     }
   }
@@ -1052,6 +1741,7 @@ class _SurfPainter extends CustomPainter {
     required bool faceRight,
     required double scale,
     required double aimSway,
+    required double stridePhase,
   }) {
     final sil = _sentinelSilhouetteBase();
     final darkCanvas = sand.computeLuminance() < 0.45;
@@ -1064,21 +1754,34 @@ class _SurfPainter extends CustomPainter {
       ..strokeWidth = math.max(1.15, scale * 0.26)
       ..strokeCap = StrokeCap.round;
 
+    final ls = math.sin(stridePhase);
+    final rs = math.sin(stridePhase + math.pi);
+    final hipSway = 0.018 * scale * math.sin(stridePhase);
+
     canvas.save();
     canvas.translate(feet.dx, feet.dy);
+    canvas.translate(hipSway, 0);
     canvas.scale(faceRight ? 1.0 : -1.0, 1.0);
 
-    // Legs
-    canvas.drawLine(
-      Offset(-scale * 0.22, 0),
-      Offset(-scale * 0.32, scale * 0.42),
-      stroke,
-    );
-    canvas.drawLine(
-      Offset(scale * 0.22, 0),
-      Offset(scale * 0.32, scale * 0.42),
-      stroke,
-    );
+    // Legs: hip → knee → foot (alternating stride; rs = −ls for natural opposition).
+    void leg(
+      double hipX,
+      double hipY,
+      double footX,
+      double footY,
+      double kneeInward,
+    ) {
+      final hip = Offset(hipX * scale, hipY * scale);
+      final foot = Offset(footX * scale, footY * scale);
+      final mx = (hip.dx + foot.dx) / 2 + kneeInward * scale;
+      final my = (hip.dy + foot.dy) / 2 - 0.045 * scale;
+      final knee = Offset(mx, my);
+      canvas.drawLine(hip, knee, stroke);
+      canvas.drawLine(knee, foot, stroke);
+    }
+
+    leg(-0.22, 0, -0.32 + 0.12 * ls, 0.42, 0.07);
+    leg(0.22, 0, 0.32 + 0.12 * rs, 0.42, -0.07);
     // Torso
     canvas.drawLine(
       Offset(0, 0),
@@ -1121,11 +1824,253 @@ class _SurfPainter extends CustomPainter {
     canvas.restore();
   }
 
+  /// Rooftop worker — same proportions as sentinels for clarity; hammer swing only.
+  void _paintRoofConstructors(
+    Canvas canvas,
+    Path buildingPath,
+    Rect cell,
+    int dayIndex,
+  ) {
+    // Entrance animation scales bars; use a floor so figures stay visible (sentinels
+    // still wait until ~8% to avoid clutter during the very first frames).
+    if (heightFactor < 0.02) return;
+    var bounds = buildingPath.getBounds();
+    final useGroundFallback = bounds.height < 18 || bounds.width < 10;
+    if (useGroundFallback) {
+      bounds = Rect.fromLTWH(
+        cell.left,
+        cell.bottom - 4,
+        math.max(10.0, cell.width),
+        4,
+      );
+    }
+
+    final visFactor = math.max(heightFactor, 0.52);
+    final scale = (cell.width * 0.092 * visFactor).clamp(5.2, 11.0);
+    // One worker per column at 20% along the padded roof span (feet stay inside ridge).
+    final edgePad = (scale * 0.42).clamp(2.0, bounds.width * 0.22);
+    final walkW = math.max(4.0, bounds.width - 2 * edgePad);
+    final cx = bounds.left + edgePad + walkW * 0.2;
+    final footY = useGroundFallback
+        ? cell.bottom - 8
+        : _hipYOnRoofRidge(bounds, cx, scale);
+    final faceRight = dayIndex.isEven;
+    _drawRoofConstructor(
+      canvas,
+      Offset(cx, footY),
+      faceRight: faceRight,
+      scale: scale,
+      constructPhase: constructPhase,
+      workerIndex: 0,
+      dayIndex: dayIndex,
+    );
+  }
+
+  void _drawRoofConstructor(
+    Canvas canvas,
+    Offset feet, {
+    required bool faceRight,
+    required double scale,
+    required double constructPhase,
+    required int workerIndex,
+    required int dayIndex,
+  }) {
+    final sil = _sentinelSilhouetteBase();
+    final hatFill = Color.lerp(const Color(0xFFF59E0B), const Color(0xFFD97706), 0.35)!
+        .withValues(alpha: sil.opacity);
+    final stroke = Paint()
+      ..color = sil
+      ..strokeWidth = math.max(1.05, scale * 0.2)
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final handleStroke = Paint()
+      ..color = sil
+      ..strokeWidth = math.max(0.95, scale * 0.17)
+      ..strokeCap = StrokeCap.round;
+    final headFill = Paint()..color = sil;
+    final hammerHeadFill = Paint()..color = sil;
+
+    final stagger = workerIndex * 0.18 + dayIndex * 0.06;
+    var p = (constructPhase + stagger) % 1.0;
+    if (p < 0) p += 1.0;
+
+    // One loop: hammer overhead → strike toward ground → lift back overhead.
+    // Handle points +y at θ=0 (down). Interpolate hammerAngle from negative (overhead) to
+    // positive (strike down-forward). At the shoulder use rotate(hammerTwist*angle): the
+    // −(twist*angle) form swept the long way behind the head; same angles with twist*angle
+    // sweep in front of the torso (overhead → forward).
+    const overheadAngle = -2.35;
+    const strikeAngle = 0.42;
+    final hammerTwist = workerIndex == 0 ? -1.0 : 1.0;
+    const tHold = 0.07;
+    const tStrikeEnd = 0.36;
+    final double hammerAngle;
+    if (p < tHold) {
+      hammerAngle = overheadAngle;
+    } else if (p < tStrikeEnd) {
+      final u = (p - tHold) / (tStrikeEnd - tHold);
+      final e = Curves.easeIn.transform(u);
+      hammerAngle = overheadAngle + e * (strikeAngle - overheadAngle);
+    } else {
+      final u = (p - tStrikeEnd) / (1.0 - tStrikeEnd);
+      final e = Curves.easeOut.transform(u);
+      hammerAngle = strikeAngle + e * (overheadAngle - strikeAngle);
+    }
+
+    // Forward lean at the hips (Flutter +rotate is CW; for spine (0,−y) that pulls the
+    // head backward — use negative rotation so the bend reads toward the strike).
+    double leanPhase;
+    if (p < tHold) {
+      leanPhase = 0.2;
+    } else if (p < tStrikeEnd) {
+      final u = (p - tHold) / (tStrikeEnd - tHold);
+      leanPhase = 0.2 + 0.8 * Curves.easeIn.transform(u);
+    } else {
+      final u = (p - tStrikeEnd) / (1.0 - tStrikeEnd);
+      leanPhase = 0.2 + 0.8 * (1.0 - Curves.easeOut.transform(u));
+    }
+
+    final t = constructPhase * math.pi * 2;
+    final sway = 0.03 * math.sin(t * 0.5 + stagger * 10);
+    final bob = 0.06 * math.sin(t + stagger * 12);
+
+    canvas.save();
+    try {
+      canvas.translate(feet.dx, feet.dy);
+      canvas.translate(sway * scale, bob);
+      canvas.scale(faceRight ? 1.0 : -1.0, 1.0);
+
+      // Legs stay planted; upper body hinges forward at the hip so the bend reads clearly
+      // (full-canvas rotate + mirror can leave the torso looking vertical at small scale).
+      canvas.drawLine(
+        Offset(-scale * 0.22, 0),
+        Offset(-scale * 0.32, scale * 0.42),
+        stroke,
+      );
+      canvas.drawLine(
+        Offset(scale * 0.22, 0),
+        Offset(scale * 0.32, scale * 0.42),
+        stroke,
+      );
+
+      const hipHingeRad = 0.58;
+      canvas.save();
+      try {
+        canvas.rotate(-hipHingeRad * leanPhase);
+
+        canvas.drawLine(
+          Offset(0, 0),
+          Offset(0, -scale * 1.02),
+          stroke,
+        );
+        // Free arm (same family as sentinel “rear arm”)
+        canvas.drawLine(
+          Offset(0, -scale * 0.82),
+          Offset(-scale * 0.36, -scale * 0.62),
+          stroke,
+        );
+        // Head — aligned with sentinel
+        canvas.drawCircle(
+          Offset(0, -scale * 1.18),
+          scale * 0.24,
+          headFill,
+        );
+        final hc = Offset(0, -scale * 1.18);
+        final hatBrim = hc.dy - scale * 0.1;
+        final hatTop = hc.dy - scale * 0.24;
+        final hatPath = Path()
+          ..moveTo(-scale * 0.24, hatBrim)
+          ..quadraticBezierTo(0, hatTop, scale * 0.24, hatBrim)
+          ..lineTo(scale * 0.2, hatBrim + scale * 0.045)
+          ..lineTo(-scale * 0.2, hatBrim + scale * 0.045)
+          ..close();
+        canvas.drawPath(hatPath, Paint()..color = hatFill);
+        canvas.drawPath(
+          hatPath,
+          Paint()
+            ..color = sil
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = math.max(0.8, scale * 0.13),
+        );
+
+        final sh = Offset(scale * 0.28, -scale * 0.78);
+        canvas.save();
+        try {
+          canvas.translate(sh.dx, sh.dy);
+          canvas.rotate(hammerTwist * hammerAngle);
+          final handleLen = scale * 0.38;
+          canvas.drawLine(Offset.zero, Offset(0, handleLen), handleStroke);
+          final hh = scale * 0.085;
+          final hw = scale * 0.2;
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                center: Offset(0, handleLen + hh * 0.35),
+                width: hw,
+                height: hh,
+              ),
+              Radius.circular(scale * 0.02),
+            ),
+            hammerHeadFill,
+          );
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                center: Offset(0, handleLen + hh * 0.35),
+                width: hw,
+                height: hh,
+              ),
+              Radius.circular(scale * 0.02),
+            ),
+            Paint()
+              ..color = sil
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = math.max(0.65, scale * 0.11),
+          );
+        } finally {
+          canvas.restore();
+        }
+      } finally {
+        canvas.restore();
+      }
+
+      // Sparks at end of down-stroke (impact), not during lift.
+      if (p >= tHold && p <= tStrikeEnd) {
+        final u = (p - tHold) / (tStrikeEnd - tHold);
+        if (u > 0.82) {
+          final hit = ((u - 0.82) / 0.18).clamp(0.0, 1.0);
+          final sp = Paint()
+            ..color = sil.withValues(alpha: 0.45 * hit)
+            ..style = PaintingStyle.fill;
+          // Impact toward column center (±x by worker); same +y toward ground.
+          final towardCenter = workerIndex == 0 ? 1.0 : -1.0;
+          final ax = towardCenter * scale * 0.34;
+          final ay = scale * 0.48;
+          canvas.drawCircle(Offset(ax, ay), scale * 0.045 * hit, sp);
+          canvas.drawCircle(
+            Offset(ax + towardCenter * scale * 0.08, ay - scale * 0.05),
+            scale * 0.034 * hit,
+            sp,
+          );
+        }
+      }
+    } finally {
+      canvas.restore();
+    }
+  }
+
   void _paintBirds(Canvas canvas, Rect surfRect) {
-    // One drone per weekday that has at least one completed task (matches "week" activity).
+    // One drone per day that has tasks and **all** of them finished (no partial days).
     var n = 0;
-    for (var i = 0; i < 7 && i < completedPerDay.length; i++) {
-      if (completedPerDay[i] >= 1) n++;
+    for (var i = 0; i < 7 && i < completedCountPerDay.length; i++) {
+      if (i >= taskTotalsPerDay.length) continue;
+      final tasks = taskTotalsPerDay[i];
+      final done = completedCountPerDay[i];
+      if (tasks == 0) continue;
+      final sum = i < progressSumPerDay.length ? progressSumPerDay[i] : 0;
+      final allDone = done >= tasks || sum >= tasks * 100;
+      if (!allDone) continue;
+      n++;
     }
     if (n == 0) return;
 
@@ -1168,20 +2113,22 @@ class _SurfPainter extends CustomPainter {
     required double sweepPhase,
   }) {
     canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.scale(facingRight ? 1.0 : -1.0, 1.0);
+    try {
+      canvas.translate(center.dx, center.dy);
+      canvas.scale(facingRight ? 1.0 : -1.0, 1.0);
 
-    final s = size;
-    final hull = Color.lerp(const Color(0xFF2C2C2C), primary, 0.12)!;
-    final beamTint = Color.lerp(primary, sand, 0.12)!;
+      final s = size;
+      final hull = Color.lerp(const Color(0xFF2C2C2C), primary, 0.12)!;
+      final beamTint = Color.lerp(primary, sand, 0.12)!;
 
-    // 1) Searchlight — wide ambient + main wash + bright core (large ground coverage).
-    canvas.save();
-    final scan = 0.28 * math.sin(sweepPhase);
-    canvas.rotate(scan);
-    final beamTop = s * 0.02;
+      // 1) Searchlight — wide ambient + main wash + bright core (large ground coverage).
+      canvas.save();
+      try {
+        final scan = 0.28 * math.sin(sweepPhase);
+        canvas.rotate(scan);
+        final beamTop = s * 0.02;
 
-    final outerPath = Path()
+        final outerPath = Path()
       ..moveTo(-s * 0.2, beamTop)
       ..lineTo(s * 0.2, beamTop)
       ..lineTo(s * 1.58, s * 2.42)
@@ -1233,97 +2180,105 @@ class _SurfPainter extends CustomPainter {
       ..lineTo(s * 0.48, s * 1.78)
       ..lineTo(-s * 0.48, s * 1.78)
       ..close();
-    canvas.drawPath(
-      corePath,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            primary.withValues(alpha: 0.58),
-            primary.withValues(alpha: 0.22),
-            primary.withValues(alpha: 0.0),
-          ],
-          stops: const [0.0, 0.55, 1.0],
-        ).createShader(Rect.fromLTWH(-s * 0.52, beamTop, s * 1.04, s * 1.8)),
-    );
-    canvas.restore();
+        canvas.drawPath(
+          corePath,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                primary.withValues(alpha: 0.58),
+                primary.withValues(alpha: 0.22),
+                primary.withValues(alpha: 0.0),
+              ],
+              stops: const [0.0, 0.55, 1.0],
+            ).createShader(Rect.fromLTWH(-s * 0.52, beamTop, s * 1.04, s * 1.8)),
+        );
+      } finally {
+        canvas.restore();
+      }
 
-    // 2) Hub
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(0, -s * 0.06),
-          width: s * 0.46,
-          height: s * 0.17,
+      // 2) Hub
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(0, -s * 0.06),
+            width: s * 0.46,
+            height: s * 0.17,
+          ),
+          const Radius.circular(4),
         ),
-        const Radius.circular(4),
-      ),
-      Paint()..color = hull.withValues(alpha: 0.95),
-    );
+        Paint()..color = hull.withValues(alpha: 0.95),
+      );
 
-    // 3) Arms + rotors (quad layout)
-    final arm = s * 0.38;
-    for (var k = 0; k < 4; k++) {
-      final a = k * math.pi / 2;
-      final ox = math.cos(a) * arm;
-      final oy = math.sin(a) * arm * 0.52 - s * 0.06;
-      canvas.drawLine(
-        Offset(0, -s * 0.06),
-        Offset(ox * 0.92, oy * 0.92),
-        Paint()
-          ..color = hull.withValues(alpha: 0.75)
-          ..strokeWidth = math.max(1.2, s * 0.095)
-          ..strokeCap = StrokeCap.round,
+      // 3) Arms + rotors (quad layout)
+      final arm = s * 0.38;
+      for (var k = 0; k < 4; k++) {
+        final a = k * math.pi / 2;
+        final ox = math.cos(a) * arm;
+        final oy = math.sin(a) * arm * 0.52 - s * 0.06;
+        canvas.drawLine(
+          Offset(0, -s * 0.06),
+          Offset(ox * 0.92, oy * 0.92),
+          Paint()
+            ..color = hull.withValues(alpha: 0.75)
+            ..strokeWidth = math.max(1.2, s * 0.095)
+            ..strokeCap = StrokeCap.round,
+        );
+        canvas.drawCircle(
+          Offset(ox, oy),
+          s * 0.092,
+          Paint()..color = hull.withValues(alpha: 0.9),
+        );
+        canvas.drawCircle(
+          Offset(ox, oy),
+          s * 0.092,
+          Paint()
+            ..color = primary.withValues(alpha: 0.42)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.0,
+        );
+      }
+
+      // 4) Gimbal / camera LED under hull
+      final ledY = s * 0.05;
+      canvas.drawCircle(
+        Offset(0, ledY),
+        s * 0.09,
+        Paint()..color = primary.withValues(alpha: 0.22),
       );
       canvas.drawCircle(
-        Offset(ox, oy),
-        s * 0.092,
-        Paint()..color = hull.withValues(alpha: 0.9),
+        Offset(0, ledY),
+        s * 0.052,
+        Paint()..color = primary.withValues(alpha: 0.95),
       );
       canvas.drawCircle(
-        Offset(ox, oy),
-        s * 0.092,
+        Offset(0, ledY),
+        s * 0.052,
         Paint()
-          ..color = primary.withValues(alpha: 0.42)
+          ..color = Colors.white.withValues(alpha: 0.55)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0,
+          ..strokeWidth = 0.8,
       );
+    } finally {
+      canvas.restore();
     }
-
-    // 4) Gimbal / camera LED under hull
-    final ledY = s * 0.05;
-    canvas.drawCircle(
-      Offset(0, ledY),
-      s * 0.09,
-      Paint()..color = primary.withValues(alpha: 0.22),
-    );
-    canvas.drawCircle(
-      Offset(0, ledY),
-      s * 0.052,
-      Paint()..color = primary.withValues(alpha: 0.95),
-    );
-    canvas.drawCircle(
-      Offset(0, ledY),
-      s * 0.052,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.55)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.8,
-    );
-
-    canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant _SurfPainter oldDelegate) =>
       values != oldDelegate.values ||
       taskTotalsPerDay != oldDelegate.taskTotalsPerDay ||
-      completedPerDay != oldDelegate.completedPerDay ||
+      completedCountPerDay != oldDelegate.completedCountPerDay ||
+      progressSumPerDay != oldDelegate.progressSumPerDay ||
+      weekMonday != oldDelegate.weekMonday ||
+      today != oldDelegate.today ||
       todayIndex != oldDelegate.todayIndex ||
       selectedIndex != oldDelegate.selectedIndex ||
       primary != oldDelegate.primary ||
       sand != oldDelegate.sand ||
       heightFactor != oldDelegate.heightFactor ||
-      birdTime != oldDelegate.birdTime;
+      birdTime != oldDelegate.birdTime ||
+      constructPhase != oldDelegate.constructPhase ||
+      patrolPhase != oldDelegate.patrolPhase;
 }

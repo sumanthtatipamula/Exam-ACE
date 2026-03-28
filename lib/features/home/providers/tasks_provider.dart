@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:exam_ace/features/home/models/task.dart';
 import 'package:exam_ace/features/home/models/home_task.dart'
     show HomeTask, homeTaskEntityKey;
+import 'package:exam_ace/core/settings/metric_formula_provider.dart';
+import 'package:exam_ace/core/utils/metric_formulas.dart';
+import 'package:exam_ace/features/auth/providers/auth_provider.dart';
 import 'package:exam_ace/features/subjects/providers/subjects_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -110,22 +113,82 @@ class TasksRepository {
 // ---------------------------------------------------------------------------
 
 final allStandaloneTasksProvider = StreamProvider<List<Task>>((ref) {
-  return ref.watch(tasksRepositoryProvider).watchAll();
+  return streamWhenSignedIn(
+    ref,
+    <Task>[],
+    () => ref.watch(tasksRepositoryProvider).watchAll(),
+  );
 });
 
 String dateKey(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+/// Monday 00:00 of the calendar week containing [d].
+DateTime mondayOfWeekContaining(DateTime d) {
+  final wd = d.weekday;
+  return DateUtils.dateOnly(d.subtract(Duration(days: wd - 1)));
+}
+
+/// Mean progress in \[0, 1\] across countable tasks (partial work counts).
+/// Carried spillover is excluded upstream via [homeTasksForMetricsProvider].
+double dailyAverageProgressRatio(List<HomeTask> tasks) {
+  if (tasks.isEmpty) return 0.0;
+  var sum = 0;
+  for (final t in tasks) {
+    sum += t.progress.clamp(0, 100);
+  }
+  return sum / (tasks.length * 100.0);
+}
+
+/// Weekly headline ratio \[0, 1\] for the Mon–Sun week starting [weekMonday],
+/// using [metricFormulaProvider] (Math / Physics / Chemistry).
+double computeWeeklyMetricRatio(Ref ref, DateTime weekMonday) {
+  final mode = ref.watch(metricFormulaProvider);
+  final monday = DateUtils.dateOnly(weekMonday);
+  final progressPerTask = <int>[];
+  final dailyAvgs = <double>[];
+  final dailyCounts = <int>[];
+  for (var i = 0; i < 7; i++) {
+    final date = monday.add(Duration(days: i));
+    final key = dateKey(date);
+    final tasks = ref.watch(homeTasksForMetricsProvider(key));
+    dailyCounts.add(tasks.length);
+    dailyAvgs.add(dailyAverageProgressRatio(tasks));
+    for (final t in tasks) {
+      progressPerTask.add(t.progress.clamp(0, 100));
+    }
+  }
+  return weeklyRatioForMode(
+    mode: mode,
+    progressPerTask: progressPerTask,
+    dailyAverageRatios: dailyAvgs,
+    taskCountPerDay: dailyCounts,
+  );
+}
+
+/// Same as [computeWeeklyMetricRatio] (week-over-week ribbon uses this).
+double weeklyProgressRatioForWeek(Ref ref, DateTime weekMonday) {
+  return computeWeeklyMetricRatio(ref, weekMonday);
+}
+
 /// Per-calendar-day progress snapshot (for history / calendar). Merged in [homeTasksForDateProvider].
 final daySnapshotForDateProvider =
     StreamProvider.family<Map<String, int>, String>((ref, dateKey) {
-  return ref.watch(tasksRepositoryProvider).watchDaySnapshot(dateKey);
+  return streamWhenSignedIn(
+    ref,
+    <String, int>{},
+    () => ref.watch(tasksRepositoryProvider).watchDaySnapshot(dateKey),
+  );
 });
 
 /// Entity keys the user pulled into “today” for the **current** calendar day.
 final carryIdsForTodayProvider = StreamProvider<List<String>>((ref) {
   final k = dateKey(DateTime.now());
-  return ref.watch(tasksRepositoryProvider).watchCarryIdsForDateKey(k);
+  return streamWhenSignedIn(
+    ref,
+    <String>[],
+    () => ref.watch(tasksRepositoryProvider).watchCarryIdsForDateKey(k),
+  );
 });
 
 /// Builds the list of home tasks for a given date using priority:
@@ -199,157 +262,206 @@ final homeTasksForMetricsProvider =
       .toList();
 });
 
-final weeklyCompletionsProvider = Provider<Map<String, double>>((ref) {
-  final now = DateTime.now();
-  final weekday = now.weekday;
-  final monday = DateUtils.dateOnly(now.subtract(Duration(days: weekday - 1)));
+/// Mon–Sun average progress ratios \[0,1\] for the week starting [weekMonday] (00:00 Monday).
+final weeklyCompletionsForWeekProvider =
+    Provider.family<Map<String, double>, DateTime>((ref, weekMonday) {
+  final monday = DateUtils.dateOnly(weekMonday);
 
   final completions = <String, double>{};
   for (int i = 0; i < 7; i++) {
     final date = monday.add(Duration(days: i));
     final key = dateKey(date);
     final tasks = ref.watch(homeTasksForMetricsProvider(key));
-    if (tasks.isEmpty) {
-      completions[key] = 0.0;
-    } else {
-      final done = tasks.where((t) => t.isComplete).length;
-      completions[key] = done / tasks.length;
-    }
+    completions[key] = dailyAverageProgressRatio(tasks);
   }
   return completions;
 });
 
-/// Surf bar heights + per-day task counts + week totals for the tracker UI.
+final weeklyCompletionsProvider = Provider<Map<String, double>>((ref) {
+  return ref.watch(weeklyCompletionsForWeekProvider(mondayOfWeekContaining(DateTime.now())));
+});
+
+/// Surf bar heights + per-day task counts + week progress totals for the tracker UI.
 class WeeklySurfData {
   final List<double> heights;
   final List<int> taskTotalsPerDay;
-  /// Completed task count per day (Mon–Sun), parallel to [taskTotalsPerDay].
-  final List<int> completedPerDay;
-  final int weekCompletedTotal;
-  final int weekTaskTotal;
+  /// Sum of task progress per day (0–100 each), parallel to [taskTotalsPerDay].
+  final List<int> progressSumPerDay;
+  /// Tasks at 100% that day — drives surf building height vs the week’s max count.
+  final List<int> completedCountPerDay;
+  /// Total progress points across the week (sum of per-task progress).
+  final int weekProgressSum;
+  /// Max possible for the week (\[task count\] × 100).
+  final int weekProgressCap;
+
+  /// Ribbon / footer % — from [metricFormulaProvider], not always sum ÷ cap.
+  final double weekMetricRatio;
 
   const WeeklySurfData({
     required this.heights,
     required this.taskTotalsPerDay,
-    required this.completedPerDay,
-    required this.weekCompletedTotal,
-    required this.weekTaskTotal,
+    required this.progressSumPerDay,
+    required this.completedCountPerDay,
+    required this.weekProgressSum,
+    required this.weekProgressCap,
+    required this.weekMetricRatio,
   });
-
-  double get weekAverageRatio =>
-      weekTaskTotal == 0 ? 0.0 : weekCompletedTotal / weekTaskTotal;
 }
 
-/// Surf bar heights in \[0, 1\] for Mon–Sun: **relative to the week’s max completions**
-/// so more tasks finished that day → taller building (1 done vs 3 done are visibly different).
-final weeklySurfDataProvider = Provider<WeeklySurfData>((ref) {
-  final now = DateTime.now();
-  final weekday = now.weekday;
-  final monday = DateUtils.dateOnly(now.subtract(Duration(days: weekday - 1)));
+/// Surf bar heights in \[0, 1\] for Mon–Sun.
+///
+/// **Today and future** columns use **that day’s** completion fraction
+/// (`completedTasks / scheduledTasks`) so 1-of-3 and 2-of-3 produce different bar
+/// heights (previously `completed ÷ weekMax` often collapsed to full height).
+///
+/// **Past** days keep the older “scheduled load” height scaled by [maxDayScale]
+/// when incomplete so ruined / cracked facades stay readable in the painter.
+final weeklySurfDataForWeekProvider =
+    Provider.family<WeeklySurfData, DateTime>((ref, weekMonday) {
+  ref.watch(metricFormulaProvider);
+  final monday = DateUtils.dateOnly(weekMonday);
+  final todayOnly = DateUtils.dateOnly(DateTime.now());
 
-  final doneCounts = <int>[];
   final totalCounts = <int>[];
+  final progressSums = <int>[];
+  final completedPerDay = <int>[];
 
   for (var i = 0; i < 7; i++) {
     final date = monday.add(Duration(days: i));
     final key = dateKey(date);
     final tasks = ref.watch(homeTasksForMetricsProvider(key));
     final total = tasks.length;
-    final done = tasks.where((t) => t.isComplete).length;
+    var sum = 0;
+    var done = 0;
+    for (final t in tasks) {
+      sum += t.progress.clamp(0, 100);
+      if (t.isComplete) done++;
+    }
     totalCounts.add(total);
-    doneCounts.add(done);
+    progressSums.add(sum);
+    completedPerDay.add(done);
   }
 
-  final weekCompletedTotal =
-      doneCounts.fold<int>(0, (a, b) => a + b);
-  final weekTaskTotal =
+  final weekProgressSum =
+      progressSums.fold<int>(0, (a, b) => a + b);
+  final weekTaskCount =
       totalCounts.fold<int>(0, (a, b) => a + b);
+  final weekProgressCap = weekTaskCount * 100;
 
-  final maxDone = doneCounts.fold<int>(0, (a, b) => a > b ? a : b);
-  final maxTotal = totalCounts.fold<int>(0, (a, b) => a > b ? a : b);
+  final weekMetricRatio = computeWeeklyMetricRatio(ref, monday);
 
-  if (maxDone == 0 && maxTotal == 0) {
+  var maxDayScale = 0;
+  for (var i = 0; i < 7; i++) {
+    final t = totalCounts[i];
+    if (t == 0) continue;
+    final c = completedPerDay[i];
+    final scale = c > 0 ? c : t;
+    if (scale > maxDayScale) maxDayScale = scale;
+  }
+
+  if (weekTaskCount == 0) {
     return WeeklySurfData(
       heights: List<double>.filled(7, 0),
       taskTotalsPerDay: totalCounts,
-      completedPerDay: doneCounts,
-      weekCompletedTotal: weekCompletedTotal,
-      weekTaskTotal: weekTaskTotal,
+      progressSumPerDay: progressSums,
+      completedCountPerDay: completedPerDay,
+      weekProgressSum: weekProgressSum,
+      weekProgressCap: weekProgressCap,
+      weekMetricRatio: weekMetricRatio,
+    );
+  }
+
+  if (maxDayScale == 0) {
+    return WeeklySurfData(
+      heights: List<double>.filled(7, 0),
+      taskTotalsPerDay: totalCounts,
+      progressSumPerDay: progressSums,
+      completedCountPerDay: completedPerDay,
+      weekProgressSum: weekProgressSum,
+      weekProgressCap: weekProgressCap,
+      weekMetricRatio: weekMetricRatio,
     );
   }
 
   final heights = List<double>.generate(7, (i) {
     if (totalCounts[i] == 0) return 0.0;
-    if (maxDone == 0) return 0.0;
-    return (doneCounts[i] / maxDone).clamp(0.0, 1.0);
+    final t = totalCounts[i];
+    final c = completedPerDay[i];
+    final dayOnly = DateUtils.dateOnly(monday.add(Duration(days: i)));
+    final isTodayOrFuture = !dayOnly.isBefore(todayOnly);
+    if (isTodayOrFuture) {
+      return t > 0 ? (c / t).clamp(0.0, 1.0) : 0.0;
+    }
+    final num = c > 0 ? c : t;
+    return (num / maxDayScale).clamp(0.0, 1.0);
   });
 
   return WeeklySurfData(
     heights: heights,
     taskTotalsPerDay: totalCounts,
-    completedPerDay: doneCounts,
-    weekCompletedTotal: weekCompletedTotal,
-    weekTaskTotal: weekTaskTotal,
+    progressSumPerDay: progressSums,
+    completedCountPerDay: completedPerDay,
+    weekProgressSum: weekProgressSum,
+    weekProgressCap: weekProgressCap,
+    weekMetricRatio: weekMetricRatio,
   );
 });
 
-/// Same **daily average** metric as the home ribbon: mean of Mon–Sun daily
-/// completion ratios (each day 0–100%, empty days count as 0%).
+final weeklySurfDataProvider = Provider<WeeklySurfData>((ref) {
+  return ref.watch(weeklySurfDataForWeekProvider(mondayOfWeekContaining(DateTime.now())));
+});
+
+/// Week-over-week for the **ribbon** only: total weekly progress ÷ cap (not surf).
 class WeekOverWeekStats {
-  final double thisWeekDailyAvg;
-  final double lastWeekDailyAvg;
+  final double thisWeekProgressRatio;
+  final double lastWeekProgressRatio;
+  final int thisWeekTaskTotal;
   final int lastWeekTaskTotal;
 
   const WeekOverWeekStats({
-    required this.thisWeekDailyAvg,
-    required this.lastWeekDailyAvg,
+    required this.thisWeekProgressRatio,
+    required this.lastWeekProgressRatio,
+    required this.thisWeekTaskTotal,
     required this.lastWeekTaskTotal,
   });
 
-  /// Last week had at least one scheduled task on some day — we can compare.
-  bool get canCompareLastWeek => lastWeekTaskTotal > 0;
+  /// Both weeks must have at least one scheduled task — otherwise vs last week is misleading
+  /// (e.g. empty future week vs a full prior week reads as −100%).
+  bool get canShowWeekOverWeekComparison =>
+      thisWeekTaskTotal > 0 && lastWeekTaskTotal > 0;
 
   /// Difference in **percentage points** (not relative %): this week − last week.
-  double get deltaPctPoints => (thisWeekDailyAvg - lastWeekDailyAvg) * 100;
+  double get deltaPctPoints =>
+      (thisWeekProgressRatio - lastWeekProgressRatio) * 100;
 }
 
-/// This week vs previous calendar week (Mon–Sun), using the same daily average
-/// definition as [weeklyCompletionsProvider].
-final weekOverWeekProvider = Provider<WeekOverWeekStats>((ref) {
-  final now = DateTime.now();
-  final wd = now.weekday;
-  final thisMonday =
-      DateUtils.dateOnly(now.subtract(Duration(days: wd - 1)));
+/// Same definition as [WeeklySurfData.weekMetricRatio] / ribbon `Progress` column.
+/// Compares the week starting [weekMonday] to the prior Mon–Sun week.
+final weekOverWeekForWeekProvider =
+    Provider.family<WeekOverWeekStats, DateTime>((ref, weekMonday) {
+  ref.watch(metricFormulaProvider);
+  final thisMonday = DateUtils.dateOnly(weekMonday);
   final lastMonday = thisMonday.subtract(const Duration(days: 7));
 
-  double averageForWeekStarting(DateTime monday) {
-    var sum = 0.0;
-    for (var i = 0; i < 7; i++) {
-      final date = monday.add(Duration(days: i));
-      final key = dateKey(date);
-      final tasks = ref.watch(homeTasksForMetricsProvider(key));
-      if (tasks.isEmpty) {
-        sum += 0.0;
-      } else {
-        final done = tasks.where((t) => t.isComplete).length;
-        sum += done / tasks.length;
-      }
-    }
-    return sum / 7.0;
-  }
-
+  var thisTotal = 0;
   var lastTotal = 0;
   for (var i = 0; i < 7; i++) {
-    final date = lastMonday.add(Duration(days: i));
-    final key = dateKey(date);
-    lastTotal += ref.watch(homeTasksForMetricsProvider(key)).length;
+    final thisKey = dateKey(thisMonday.add(Duration(days: i)));
+    final lastKey = dateKey(lastMonday.add(Duration(days: i)));
+    thisTotal += ref.watch(homeTasksForMetricsProvider(thisKey)).length;
+    lastTotal += ref.watch(homeTasksForMetricsProvider(lastKey)).length;
   }
 
   return WeekOverWeekStats(
-    thisWeekDailyAvg: averageForWeekStarting(thisMonday),
-    lastWeekDailyAvg: averageForWeekStarting(lastMonday),
+    thisWeekProgressRatio: weeklyProgressRatioForWeek(ref, thisMonday),
+    lastWeekProgressRatio: weeklyProgressRatioForWeek(ref, lastMonday),
+    thisWeekTaskTotal: thisTotal,
     lastWeekTaskTotal: lastTotal,
   );
+});
+
+final weekOverWeekProvider = Provider<WeekOverWeekStats>((ref) {
+  return ref.watch(weekOverWeekForWeekProvider(mondayOfWeekContaining(DateTime.now())));
 });
 
 /// Days with **at least one countable task** and **100%** of those complete,
@@ -428,6 +540,44 @@ final allTaskDateKeysProvider = Provider<Map<String, List<HomeTask>>>((ref) {
   return map;
 });
 
+/// Home week strip: **back** = earliest week that has any scheduled task (or current week if none);
+/// **forward** ≈ one month: week containing **today + 31 days** (upper bound).
+final homeWeekNavBoundsProvider =
+    Provider<({DateTime earliestMonday, DateTime latestMonday})>((ref) {
+  final now = DateTime.now();
+  final today = DateUtils.dateOnly(now);
+  final thisMonday = mondayOfWeekContaining(now);
+  final latestMonday =
+      mondayOfWeekContaining(today.add(const Duration(days: 31)));
+
+  final map = ref.watch(allTaskDateKeysProvider);
+  if (map.isEmpty) {
+    return (earliestMonday: thisMonday, latestMonday: latestMonday);
+  }
+
+  DateTime? minD;
+  for (final key in map.keys) {
+    final parts = key.split('-');
+    if (parts.length != 3) continue;
+    final d = DateTime(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
+    if (minD == null || d.isBefore(minD)) minD = d;
+  }
+  if (minD == null) {
+    return (earliestMonday: thisMonday, latestMonday: latestMonday);
+  }
+
+  var earliestMonday = mondayOfWeekContaining(minD);
+  final thisNorm = DateUtils.dateOnly(thisMonday);
+  if (earliestMonday.isAfter(thisNorm)) {
+    earliestMonday = thisNorm;
+  }
+  return (earliestMonday: earliestMonday, latestMonday: latestMonday);
+});
+
 /// All [HomeTask]s keyed by [homeTaskEntityKey] (latest streams; used to resolve carry ids).
 final homeTaskEntityLookupProvider = Provider<Map<String, HomeTask>>((ref) {
   final map = ref.watch(allTaskDateKeysProvider);
@@ -466,6 +616,29 @@ final spilloverTasksProvider = Provider<List<HomeTask>>((ref) {
   }
   out.sort((a, b) => a.date.compareTo(b.date));
   return out;
+});
+
+/// Tasks for calendar **dots** (and month grid): past scheduled days must not show
+/// “all done” from spillover completion today when there is no snapshot for that day.
+final calendarDayTasksProvider =
+    Provider.family<List<HomeTask>, String>((ref, targetDateKey) {
+  final tasks = ref.watch(homeTasksForDateProvider(targetDateKey));
+  final todayKey = dateKey(DateTime.now());
+  if (targetDateKey.compareTo(todayKey) >= 0) return tasks;
+
+  final snap =
+      ref.watch(daySnapshotForDateProvider(targetDateKey)).valueOrNull ?? {};
+  final carry =
+      ref.watch(carryIdsForTodayProvider).valueOrNull ?? const <String>[];
+  final carrySet = carry.toSet();
+
+  return tasks.map((t) {
+    final ek = homeTaskEntityKey(t);
+    if (carrySet.contains(ek) && t.isComplete && !snap.containsKey(ek)) {
+      return t.copyWith(progress: 0);
+    }
+    return t;
+  }).toList();
 });
 
 /// Native today + carried (for notifications / combined counts).

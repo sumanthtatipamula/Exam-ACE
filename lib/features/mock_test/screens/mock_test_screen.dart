@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:exam_ace/core/utils/safe_error_message.dart';
 import 'package:exam_ace/core/utils/snackbar_helpers.dart';
 import 'package:exam_ace/features/mock_test/models/mock_test.dart';
+import 'package:exam_ace/features/mock_test/utils/mock_test_score_style.dart';
 import 'package:exam_ace/features/mock_test/providers/mock_test_provider.dart';
 import 'package:exam_ace/features/mock_test/widgets/add_mock_test_sheet.dart';
 import 'package:exam_ace/features/subjects/models/chapter.dart';
@@ -194,9 +196,17 @@ class _MockTestScreenState extends ConsumerState<MockTestScreen> {
                         await ref
                             .read(mockTestRepositoryProvider)
                             .delete(test.id);
-                      } on Exception catch (e) {
+                      } on Object catch (e) {
                         if (context.mounted) {
-                          showErrorSnackBar(context, 'Failed to delete: $e');
+                          showErrorSnackBar(
+                            context,
+                            userFacingError(
+                              e,
+                              debugPrefix: 'Delete mock test',
+                              releaseMessage:
+                                  'Could not delete. Please try again.',
+                            ),
+                          );
                         }
                       }
                     },
@@ -601,7 +611,7 @@ class _FilterBar extends StatelessWidget {
   }
 }
 
-/// Single-line pill for marks, date, Strong, or linked chapter/topic.
+/// Single-line pill for marks, date, tier (Strong / Developing / Needs improvement), or link.
 class _MetaChip extends StatelessWidget {
   final IconData? icon;
   final double iconSize;
@@ -688,16 +698,8 @@ class _MockTestTile extends StatelessWidget {
     final pct = test.percentage;
     final pctRounded = pct.round();
 
-    final Color scoreColor;
-    if (pct >= 80) {
-      scoreColor = colorScheme.tertiary;
-    } else if (pct >= 35) {
-      scoreColor = colorScheme.secondary;
-    } else {
-      scoreColor = colorScheme.error;
-    }
-
-    final highScore = pct >= 80;
+    final scoreColor = MockTestScoreStyle.accent(colorScheme, pct);
+    final tierChip = MockTestScoreStyle.tierChipColors(colorScheme, pct);
 
     return Material(
       color: colorScheme.surfaceContainerLow,
@@ -799,16 +801,14 @@ class _MockTestTile extends StatelessWidget {
                           bg: colorScheme.surfaceContainerHighest
                               .withValues(alpha: 0.7),
                         ),
-                        if (highScore)
-                          _MetaChip(
-                            icon: Icons.emoji_events_rounded,
-                            iconSize: 13,
-                            label: 'Strong',
-                            fg: colorScheme.onTertiaryContainer,
-                            bg: colorScheme.tertiaryContainer
-                                .withValues(alpha: 0.75),
-                            fontWeight: FontWeight.w700,
-                          ),
+                        _MetaChip(
+                          icon: MockTestScoreStyle.tierIcon(pct),
+                          iconSize: 13,
+                          label: MockTestScoreStyle.tierLabel(pct),
+                          fg: tierChip.fg,
+                          bg: tierChip.bg,
+                          fontWeight: FontWeight.w700,
+                        ),
                         if (test.linkedName != null &&
                             test.linkedName!.isNotEmpty)
                           _MetaChip(

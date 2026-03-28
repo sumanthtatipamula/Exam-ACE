@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:exam_ace/core/constants/input_limits.dart';
+import 'package:exam_ace/core/utils/safe_error_message.dart';
 import 'package:exam_ace/core/utils/snackbar_helpers.dart';
+import 'package:exam_ace/core/utils/validators.dart';
 import 'package:exam_ace/features/mock_test/models/mock_test.dart';
 import 'package:exam_ace/features/mock_test/providers/mock_test_provider.dart';
 import 'package:exam_ace/features/subjects/providers/subjects_provider.dart';
@@ -208,6 +211,17 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
   }
 
   Future<void> _submit() async {
+    final titleTrim = _titleController.text.trim();
+    if (titleTrim.isNotEmpty) {
+      final lenErr =
+          validateMaxLength(titleTrim, InputLimits.mockTestTitle, 'Test name');
+      if (lenErr != null) {
+        if (!mounted) return;
+        showErrorSnackBar(context, lenErr);
+        return;
+      }
+    }
+
     final marks = int.tryParse(_marksController.text.trim()) ?? 0;
     final total = int.tryParse(_totalController.text.trim()) ?? 0;
     if (total <= 0) return;
@@ -249,7 +263,7 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
     final repo = ref.read(mockTestRepositoryProvider);
     final test = MockTest(
       id: widget.existing?.id ?? '',
-      title: _titleController.text.trim(),
+      title: titleTrim,
       marksObtained: marks,
       totalMarks: total,
       date: _date,
@@ -273,13 +287,17 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
       } else {
         showSuccessSnackBar(context, 'Mock test added');
       }
-    } catch (e) {
+    } on Object catch (e) {
       if (mounted) {
         showErrorSnackBar(
           context,
-          widget.existing != null
-              ? 'Failed to update: $e'
-              : 'Failed to add: $e',
+          userFacingError(
+            e,
+            debugPrefix: widget.existing != null ? 'Update mock test' : 'Add mock test',
+            releaseMessage: widget.existing != null
+                ? 'Could not update the mock test. Please try again.'
+                : 'Could not add the mock test. Please try again.',
+          ),
         );
       }
     }
@@ -331,8 +349,10 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
             TextField(
               controller: _titleController,
               textCapitalization: TextCapitalization.words,
+              maxLength: InputLimits.mockTestTitle,
               decoration: const InputDecoration(
                 labelText: 'Test Name (optional)',
+                counterText: '',
               ),
             ),
             const SizedBox(height: 12),
@@ -423,8 +443,14 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
                 ),
                 value: _resolveChapter(chapters),
                 items: chapters
-                    .map((c) => DropdownMenuItem(
-                        value: c, child: Text(c.name)))
+                    .asMap()
+                    .entries
+                    .map(
+                      (e) => DropdownMenuItem(
+                        value: e.value,
+                        child: Text('${e.key + 1}. ${e.value.name}'),
+                      ),
+                    )
                     .toList(),
                 onChanged: _selectedSubject == null
                     ? null
@@ -445,8 +471,14 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
                 ),
                 value: _resolveTopic(topics),
                 items: topics
-                    .map((t) => DropdownMenuItem(
-                        value: t, child: Text(t.name)))
+                    .asMap()
+                    .entries
+                    .map(
+                      (e) => DropdownMenuItem(
+                        value: e.value,
+                        child: Text('${e.key + 1}. ${e.value.name}'),
+                      ),
+                    )
                     .toList(),
                 onChanged: _selectedChapter == null
                     ? null

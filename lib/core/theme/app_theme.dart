@@ -4,37 +4,36 @@ import 'package:exam_ace/core/theme/app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get light => _build(Brightness.light);
+  static ThemeData light(AppColorPalette palette) => _build(Brightness.light, palette);
 
-  static ThemeData get dark => _build(Brightness.dark);
+  static ThemeData dark(AppColorPalette palette) => _build(Brightness.dark, palette);
 
-  static ThemeData _build(Brightness brightness) {
+  static ThemeData _build(Brightness brightness, AppColorPalette palette) {
     var colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.seedColor,
+      seedColor: palette.seedColor,
       brightness: brightness,
       dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
     );
 
     if (brightness == Brightness.light) {
       colorScheme = colorScheme.copyWith(
-        surface: AppColors.lightSurface,
-        // Seed schemes often leave these at/near pure white — unify to the same family.
-        surfaceContainerLowest: AppColors.lightSurface,
-        surfaceContainerLow: AppColors.lightSurfaceContainerLow,
-        surfaceContainer: AppColors.lightSurfaceContainerLow,
-        surfaceContainerHigh: const Color(0xFFE8EEF5),
-        surfaceContainerHighest: const Color(0xFFDDE5EE),
-        tertiary: AppColors.completionTertiary,
-        onTertiary: AppColors.onCompletionTertiary,
-        tertiaryContainer: AppColors.completionTertiaryContainer,
-        onTertiaryContainer: AppColors.onCompletionTertiaryContainer,
+        surface: palette.lightSurface,
+        surfaceContainerLowest: palette.lightSurface,
+        surfaceContainerLow: palette.lightSurfaceContainerLow,
+        surfaceContainer: palette.lightSurfaceContainerLow,
+        surfaceContainerHigh: palette.lightSurfaceContainerHigh,
+        surfaceContainerHighest: palette.lightSurfaceContainerHighest,
+        tertiary: palette.completionTertiary,
+        onTertiary: palette.onCompletionTertiary,
+        tertiaryContainer: palette.completionTertiaryContainer,
+        onTertiaryContainer: palette.onCompletionTertiaryContainer,
       );
     } else {
       colorScheme = colorScheme.copyWith(
-        tertiary: AppColors.completionTertiaryDark,
-        onTertiary: AppColors.onCompletionTertiaryDark,
-        tertiaryContainer: AppColors.completionTertiaryContainerDark,
-        onTertiaryContainer: AppColors.onCompletionTertiaryContainerDark,
+        tertiary: palette.completionTertiaryDark,
+        onTertiary: palette.onCompletionTertiaryDark,
+        tertiaryContainer: palette.completionTertiaryContainerDark,
+        onTertiaryContainer: palette.onCompletionTertiaryContainerDark,
       );
     }
 
@@ -50,10 +49,10 @@ class AppTheme {
       brightness: brightness,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: brightness == Brightness.light
-          ? AppColors.lightSurface
+          ? palette.lightSurface
           : colorScheme.surface,
       canvasColor: brightness == Brightness.light
-          ? AppColors.lightSurface
+          ? palette.lightSurface
           : colorScheme.surface,
       visualDensity: VisualDensity.standard,
       appBarTheme: AppBarTheme(

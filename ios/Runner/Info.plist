@@ -49,5 +49,16 @@
 	<string>Take a photo for your profile picture or subject cover image.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Select a photo from your library for your profile or subject covers.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.733539721297-9u8ein7cupc6kfihrs59br3386g8pva5</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -33,6 +33,15 @@ String? validateRequired(String? value, [String fieldName = 'This field']) {
   return null;
 }
 
+/// Rejects strings longer than [max] (after trim). Use for Firestore text fields.
+String? validateMaxLength(String? value, int max, String fieldLabel) {
+  if (value == null) return null;
+  if (value.trim().length > max) {
+    return '$fieldLabel must be at most $max characters';
+  }
+  return null;
+}
+
 int passwordStrengthScore(String password) {
   if (password.isEmpty) return 0;
   int score = 0;

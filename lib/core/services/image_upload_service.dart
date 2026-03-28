@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -88,5 +89,21 @@ class ImageUploadService {
     final ext = _inferExtension(file);
     final ref = _storage.ref('users/$uid/profile/avatar.$ext');
     return _uploadXFile(ref, file, ext);
+  }
+
+  /// Deletes a file in Firebase Storage given its download URL. No-op if [downloadUrl]
+  /// is empty, or if it is not a Firebase Storage URL (e.g. Google account photo).
+  static Future<void> deleteFirebaseStorageDownloadUrl(String downloadUrl) async {
+    final u = downloadUrl.trim();
+    if (u.isEmpty) return;
+    if (!u.contains('firebasestorage.googleapis.com')) return;
+    try {
+      await _storage.refFromURL(u).delete();
+    } on FirebaseException catch (e) {
+      if (e.code == 'object-not-found') return;
+      rethrow;
+    } on Object {
+      // refFromURL invalid for non-Storage URLs — intentional no-op.
+    }
   }
 }

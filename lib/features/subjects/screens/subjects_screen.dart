@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:exam_ace/core/utils/safe_error_message.dart';
 import 'package:exam_ace/core/utils/snackbar_helpers.dart';
 import 'package:exam_ace/features/subjects/models/subject.dart';
 import 'package:exam_ace/features/subjects/providers/subjects_provider.dart';
@@ -45,8 +46,17 @@ class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
     if (!confirmed) return;
     try {
       await _repo.deleteSubject(subject.id);
-    } on Exception catch (e) {
-      if (mounted) showErrorSnackBar(context, 'Failed to delete: $e');
+    } on Object catch (e) {
+      if (mounted) {
+        showErrorSnackBar(
+          context,
+          userFacingError(
+            e,
+            debugPrefix: 'Delete subject',
+            releaseMessage: 'Could not delete. Please try again.',
+          ),
+        );
+      }
     }
   }
 
@@ -66,6 +76,9 @@ class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
               clearImageUrl: clearedCover,
               date: date,
             ),
+            clearImageUrl: clearedCover,
+            previousImageUrlForStorageDelete:
+                clearedCover ? subject.imageUrl : null,
           );
         },
       ),

@@ -1,14 +1,18 @@
 rules_version = '2';
 // Deploy: firebase deploy --only firestore:rules
 // Requires: firebase login, project in .firebaserc (e.g. exam-ace-db272)
+//
+// Security model: all app data is user-scoped. Only the signed-in user may read/write
+// their own `users/{uid}/**` tree. Writes are capped at 1 MiB per document to limit abuse.
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // App data lives under users/{uid}/... (tasks, subjects, chapters, topics,
-    // mockTests, daySnapshots, carryToToday, etc.)
     match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size() < 1048576;
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
-    // Everything else: implicit deny.
   }
 }

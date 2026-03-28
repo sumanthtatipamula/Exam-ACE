@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:exam_ace/core/theme/app_colors.dart';
+import 'package:exam_ace/core/theme/color_preset_provider.dart';
 import 'package:exam_ace/features/calendar/models/daily_record.dart';
 import 'package:exam_ace/features/calendar/widgets/calendar_grid.dart';
 import 'package:exam_ace/features/home/models/home_task.dart'
@@ -62,14 +63,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     });
   }
 
-  DailyRecord? _recordForDate(
-      DateTime date, Map<String, List<HomeTask>> allTasks) {
-    final key = dateKey(date);
-    final tasks = allTasks[key];
-    if (tasks == null || tasks.isEmpty) return null;
-    return DailyRecord.fromHomeTasks(date, tasks);
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -77,8 +70,19 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final earliest = _earliestMonth(allTasks);
     final canGoBack = _canGoBack(earliest);
 
+    final daysInMonth =
+        DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
+    final monthRecords = <String, DailyRecord?>{};
+    for (var day = 1; day <= daysInMonth; day++) {
+      final date = DateTime(_currentMonth.year, _currentMonth.month, day);
+      final key = dateKey(date);
+      final tasks = ref.watch(calendarDayTasksProvider(key));
+      monthRecords[key] =
+          tasks.isEmpty ? null : DailyRecord.fromHomeTasks(date, tasks);
+    }
+
     final selectedKey = dateKey(_selectedDate);
-    final selectedTasks = ref.watch(homeTasksForDateProvider(selectedKey));
+    final selectedTasks = ref.watch(calendarDayTasksProvider(selectedKey));
     final selectedRecord = selectedTasks.isEmpty
         ? null
         : DailyRecord.fromHomeTasks(_selectedDate, selectedTasks);
@@ -89,6 +93,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final calendarPastReadOnly = selDateOnly.isBefore(todayOnly);
 
     final monthName = _monthYear(_currentMonth);
+    final allDoneColor = ref.watch(appColorPresetProvider).palette.allDone;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Calendar')),
@@ -123,10 +128,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               month: _currentMonth,
               selectedDate: _selectedDate,
               today: _today,
+              allDoneColor: allDoneColor,
               onDateSelected: (date) {
                 setState(() => _selectedDate = date);
               },
-              recordForDate: (date) => _recordForDate(date, allTasks),
+              recordForDate: (date) => monthRecords[dateKey(date)],
             ),
           ),
           const SizedBox(height: 8),
@@ -134,7 +140,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                _Legend(color: AppColors.allDone, label: 'All done'),
+                _Legend(color: allDoneColor, label: 'All done'),
                 const SizedBox(width: 16),
                 _Legend(color: AppColors.partial, label: 'Partial'),
                 const SizedBox(width: 16),

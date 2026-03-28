@@ -23,6 +23,7 @@ class UserDataCleanupService {
     await _deleteCollectionInBatches(userRef.collection('daySnapshots'));
     await _deleteCollectionInBatches(userRef.collection('carryToToday'));
     await _deleteCollectionInBatches(userRef.collection('mockTests'));
+    await _deleteCollectionInBatches(userRef.collection('examScores'));
 
     await _deleteSubjectsTree(userRef);
 

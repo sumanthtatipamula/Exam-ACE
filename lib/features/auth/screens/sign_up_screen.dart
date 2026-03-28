@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:exam_ace/core/constants/input_limits.dart';
 import 'package:exam_ace/core/utils/validators.dart';
 import 'package:exam_ace/core/utils/snackbar_helpers.dart';
 import 'package:exam_ace/features/auth/providers/auth_provider.dart';
@@ -43,7 +45,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         showSuccessSnackBar(
             context, 'Account created successfully! Welcome aboard.');
       }
-    } on Exception catch (e) {
+    } on FirebaseAuthException catch (e) {
+      if (mounted) showErrorSnackBar(context, friendlyAuthError(e));
+    } on Object catch (e) {
       if (mounted) showErrorSnackBar(context, friendlyAuthError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -98,12 +102,21 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       controller: _nameController,
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
+                      maxLength: InputLimits.displayName,
                       decoration: const InputDecoration(
                         labelText: 'Full Name',
                         prefixIcon: Icon(Icons.person_outlined),
+                        counterText: '',
                       ),
-                      validator: (v) =>
-                          validateRequired(v, 'Name'),
+                      validator: (v) {
+                        final req = validateRequired(v, 'Name');
+                        if (req != null) return req;
+                        return validateMaxLength(
+                          v,
+                          InputLimits.displayName,
+                          'Name',
+                        );
+                      },
                     ),
                     const SizedBox(height: 14),
                     TextFormField(

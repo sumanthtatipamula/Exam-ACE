@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:exam_ace/core/constants/app_strings.dart';
 import 'package:exam_ace/features/home/screens/home_screen.dart';
 import 'package:exam_ace/features/subjects/screens/subjects_screen.dart';
+import 'package:exam_ace/features/exam_score/screens/exam_score_screen.dart';
 import 'package:exam_ace/features/mock_test/screens/mock_test_screen.dart';
 import 'package:exam_ace/features/profile/screens/profile_screen.dart';
 
@@ -19,10 +20,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     HomeScreen(),
     SubjectsScreen(),
     MockTestScreen(),
+    ExamsScreen(),
     ProfileScreen(),
   ];
 
-  static const _titles = ['Home', 'Subjects', 'Mock Tests', 'Profile'];
+  static const _titles = [
+    'Home',
+    'Subjects',
+    'Mock Tests',
+    'Exams',
+    'Profile',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +95,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: Icon(Icons.quiz_outlined),
             selectedIcon: Icon(Icons.quiz_rounded),
             label: 'Mock Tests',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.fact_check_outlined),
+            selectedIcon: Icon(Icons.fact_check_rounded),
+            label: 'Exams',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outlined),
