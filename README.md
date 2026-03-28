@@ -56,11 +56,25 @@ flutter run --dart-define=GOOGLE_SIGN_IN_WEB_CLIENT_ID=your-id.apps.googleuserco
 ## Build release
 
 ```bash
-flutter build apk    # Android
+flutter build apk    # Android quick install
+flutter build appbundle   # Android — required for Google Play (.aab)
 flutter build ios      # iOS (on macOS)
 ```
 
 Use your own signing keys for store releases; do not commit `key.properties`, `.jks`, or `.keystore` (see `.gitignore`).
+
+### Google Play
+
+1. **[docs/PLAY_STORE_RELEASE.md](docs/PLAY_STORE_RELEASE.md)** — signing, version codes, Data safety, privacy URL.
+2. **[docs/GOOGLE_PLAY_APP_CONTENT.md](docs/GOOGLE_PLAY_APP_CONTENT.md)** — Play Console **App content** checklist (privacy policy, ads, reviewer access, target audience, permissions, content ratings, COVID-19, news/magazine) aligned with Exam Ace.
+3. Copy **`android/key.properties.example`** → **`android/key.properties`** and point `storeFile` at your upload keystore.
+4. Production bundle — privacy URL is set in code ([`lib/core/constants/legal_urls.dart`](lib/core/constants/legal_urls.dart)). Optional override:
+
+   ```bash
+   flutter build appbundle --dart-define=PRIVACY_POLICY_URL=https://sumanthtatipamula.github.io/Exam-ACE/
+   ```
+
+5. **Privacy policy (live):** [https://sumanthtatipamula.github.io/Exam-ACE/](https://sumanthtatipamula.github.io/Exam-ACE/) — paste this **exact URL** into **Google Play Console → App content → Privacy policy**. Profile → **Privacy policy** in the app opens the same link. Keep **[PRIVACY.md](PRIVACY.md)** and **`docs/index.html`** in sync when you change the policy, then push so GitHub Pages updates.
 
 ## Project layout (high level)
 

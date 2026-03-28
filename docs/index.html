@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy Policy — Exam Ace</title>
+  <meta name="description" content="Privacy policy for the Exam Ace mobile app." />
+  <style>
+    :root {
+      --bg: #faf8f5;
+      --text: #1c1917;
+      --muted: #57534e;
+      --accent: #b45309;
+      --border: #e7e5e4;
+      --max: 40rem;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1917;
+        --text: #fafaf9;
+        --muted: #a8a29e;
+        --accent: #fbbf24;
+        --border: #44403c;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      padding: 2rem 1.25rem 4rem;
+    }
+    main {
+      max-width: var(--max);
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.5rem;
+      line-height: 1.2;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+    h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 2rem 0 0.75rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    h2:first-of-type { border-top: none; padding-top: 0; }
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 1.25rem 0 0.5rem;
+    }
+    p { margin: 0 0 1rem; }
+    ul { margin: 0 0 1rem; padding-left: 1.25rem; }
+    li { margin-bottom: 0.35rem; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+    a:hover { text-decoration-thickness: 2px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+      margin: 0.75rem 0 1rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.65rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { font-weight: 600; background: rgba(0,0,0,0.03); }
+    @media (prefers-color-scheme: dark) {
+      th { background: rgba(255,255,255,0.06); }
+    }
+    .note {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Privacy Policy — Exam Ace</h1>
+    <p class="meta"><strong>Last updated:</strong> March 28, 2026</p>
+
+    <p><strong>Published at:</strong> <a href="https://sumanthtatipamula.github.io/Exam-ACE/">https://sumanthtatipamula.github.io/Exam-ACE/</a> (GitHub Pages from <code>docs/index.html</code> in this repository.)</p>
+
+    <p>This policy describes how <strong>Exam Ace</strong> (“we”, “the app”) handles information when you use our mobile application. By using Exam Ace, you agree to this policy.</p>
+
+    <p>Use the <strong>Published at</strong> URL above in the Google Play Console, App Store Connect, and anywhere a privacy policy link is required.</p>
+
+    <h2>1. Who we are</h2>
+    <p>Exam Ace is a mobile <strong>exam preparation tracker</strong>: syllabus, daily tasks, mock tests, exam records, calendar history, and progress — with optional reminders.</p>
+    <p><strong>Contact:</strong> <a href="mailto:sumanthtatipamula999@gmail.com">sumanthtatipamula999@gmail.com</a></p>
+
+    <h3>1.1 Not a government service; user-provided study content</h3>
+    <p>Exam Ace is <strong>not</strong> a government agency and is <strong>not</strong> affiliated with or endorsed by any government, exam conducting body, or public-sector employer (including commissions such as SSC or UPSC, railway recruitment authorities, banking recruitment bodies, or state public service commissions). We do <strong>not</strong> operate an official channel for government notifications, syllabi, eligibility rules, or results.</p>
+    <p><strong>Syllabus, tasks, exam dates, and scores</strong> stored in the app are <strong>information you enter</strong> (or your own notes). We process that data only to provide the app’s features described in <strong>section 2</strong> — not as a publisher of official government information.</p>
+
+    <h2>2. Information we collect and use</h2>
+
+    <h3>2.1 Account and authentication</h3>
+    <ul>
+      <li><strong>Email and password:</strong> If you register with email, we process your <strong>email address</strong> and a <strong>password</strong> (handled by <strong>Firebase Authentication</strong>; we do not store your password in plain text on our servers in a way we can read — standard Firebase security applies).</li>
+      <li><strong>Google Sign-In:</strong> If you choose <strong>Sign in with Google</strong>, Google’s service provides authentication. We request access consistent with <strong>email</strong> and <strong>profile</strong> scopes so you can sign in and we can show your name or profile photo from Google where the app displays account details. Tokens are handled by Google and Firebase as described in their policies.</li>
+      <li>Each signed-in user receives a <strong>unique user ID</strong> used to store your app data under your account.</li>
+    </ul>
+
+    <h3>2.2 Study and app data stored in the cloud (Firestore)</h3>
+    <p>When you use the app, data you enter is stored in <strong>Google Cloud Firestore</strong> under your user ID. Depending on how you use Exam Ace, this may include:</p>
+    <ul>
+      <li><strong>Tasks</strong> and related progress or completion information</li>
+      <li><strong>Calendar / day snapshots</strong> and streak or summary-style data the app derives for the UI</li>
+      <li><strong>Syllabus data:</strong> subjects, chapters, topics, notes, and progress you save</li>
+      <li><strong>Mock test</strong> records you log</li>
+      <li><strong>Exam score / exam attempt</strong> records you log</li>
+      <li>Other <strong>user profile fields</strong> stored in your user document as needed for the app to function</li>
+    </ul>
+    <p>This data is used only to <strong>provide app features</strong> (sync across devices when you sign in with the same account, backup, and display in the app).</p>
+
+    <h3>2.3 Files stored in the cloud (Firebase Storage)</h3>
+    <p>If you upload <strong>images</strong> (for example a <strong>profile photo</strong> or <strong>subject / cover images</strong>), files are stored in <strong>Firebase Storage</strong> under paths tied to your account (for example under <code>users/{your user id}/…</code>). Images may be resized or compressed before upload as implemented in the app.</p>
+
+    <h3>2.4 Data stored only on your device</h3>
+    <p>Some preferences are saved <strong>locally</strong> on your phone or tablet using the platform’s storage (for example <strong>SharedPreferences</strong>). They typically include:</p>
+    <ul>
+      <li><strong>Theme</strong> (light / dark / system)</li>
+      <li><strong>Accent / colour preset</strong></li>
+      <li><strong>Week progress metric</strong> (Simple / Strong / Strict)</li>
+      <li><strong>Syllabus sort order</strong> (how chapters and topics are ordered)</li>
+      <li><strong>Notification</strong> preferences (times, on/off), where those settings are not synced to our servers</li>
+    </ul>
+    <p>These stay on the device unless the OS backs them up according to your <strong>iCloud / Google device backup</strong> settings (outside our control).</p>
+
+    <h3>2.5 Notifications</h3>
+    <p>The app can schedule <strong>local notifications</strong> on your device (for example morning or evening reminders). They are <strong>not</strong> used to send your full task list or notes to our servers for the purpose of showing the notification — scheduling uses information the app already has locally at schedule time. Notification text may include <strong>high-level counts</strong> (for example how many tasks you have or that you have incomplete items), not your full private notes.</p>
+    <p>On <strong>Android 13+</strong> and on <strong>iOS</strong>, the system may ask for <strong>notification permission</strong>; you can change this in <strong>Settings</strong> at any time.</p>
+
+    <h3>2.6 Camera and photo library (optional)</h3>
+    <p>If you add a photo, the app may use the <strong>camera</strong> or <strong>photo library</strong> <strong>only when you choose</strong> to pick or take a picture. We use this solely to let you attach images you choose (for example profile or subject images). See Apple and Google platform policies for how the OS protects those permissions.</p>
+
+    <h3>2.7 Opening links (privacy policy)</h3>
+    <p>If you open the <strong>Privacy policy</strong> link from the app, the system <strong>browser</strong> may open using your default browser app (<strong>url_launcher</strong>). That request only navigates to the URL you see; we do not embed a full web tracker in that flow beyond what your browser and that website do.</p>
+
+    <h3>2.8 Technical data, security, and analytics</h3>
+    <ul>
+      <li><strong>Firebase and Google Cloud</strong> process <strong>technical data</strong> needed to run authentication, database, and storage (for example <strong>security tokens</strong>, <strong>IP-related</strong> or <strong>server logs</strong> as described in <a href="https://firebase.google.com/support/privacy" rel="noopener noreferrer">Firebase documentation</a>, and abuse prevention).</li>
+      <li>Data is transmitted using <strong>HTTPS</strong> in line with standard mobile and Firebase practices.</li>
+      <li><strong>This app does not integrate a separate third-party analytics SDK</strong> (for example we do not bundle Firebase Analytics in the app as listed in our public dependencies). Operational data may still appear in <strong>Google Cloud / Firebase project</strong> consoles for the developer to operate the service.</li>
+    </ul>
+    <p>We do <strong>not</strong> sell your personal information.</p>
+
+    <h2>3. Third-party services</h2>
+    <p>The app relies on services that have their own privacy policies:</p>
+    <table>
+      <thead>
+        <tr><th>Service</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Google Firebase</strong> (Authentication, Firestore, Storage, and related Google Cloud infrastructure)</td><td>Sign-in, encrypted sync and storage of your app data</td></tr>
+        <tr><td><strong>Google Sign-In</strong></td><td>Optional “Sign in with Google”</td></tr>
+      </tbody>
+    </table>
+    <p>You should review:</p>
+    <ul>
+      <li><a href="https://policies.google.com/privacy" rel="noopener noreferrer">Google Privacy Policy</a></li>
+      <li><a href="https://firebase.google.com/support/privacy" rel="noopener noreferrer">Firebase Privacy and Security</a></li>
+    </ul>
+    <p>We do not control how Google processes data when you use their services; that is governed by Google’s terms and your Google account choices.</p>
+
+    <h2 id="account-deletion">4. Account and data deletion</h2>
+    <p><strong>Public link for app store requirements (for example Google Play Data safety):</strong> <a href="https://sumanthtatipamula.github.io/Exam-ACE/#account-deletion">https://sumanthtatipamula.github.io/Exam-ACE/#account-deletion</a></p>
+    <p>Opening this URL in a browser opens this policy at the <strong>Account and data deletion</strong> section.</p>
+    <p>You can <strong>request deletion</strong> of your account and associated data as follows:</p>
+    <ul>
+      <li><strong>In the app:</strong> From <strong>Profile → Data &amp; account</strong>, you can:
+        <ul>
+          <li><strong>Clear all data</strong> — permanently deletes your Firestore data (including tasks, syllabus tree, mock tests, exam scores, day snapshots, and related records) and files under your user folder in <strong>Firebase Storage</strong>, as implemented by the app. Your <strong>sign-in account</strong> remains so you can keep using Exam Ace with an empty slate.</li>
+          <li><strong>Delete account</strong> — permanently deletes your <strong>Firebase Authentication</strong> account after removing your data as above, then signs you out.</li>
+        </ul>
+      </li>
+      <li><strong>By email:</strong> If you cannot use the app, send a request using this link: <a href="mailto:sumanthtatipamula999@gmail.com?subject=Exam%20Ace%20-%20Account%20and%20data%20deletion%20request&amp;body=Please%20include%20the%20email%20address%20associated%20with%20your%20Exam%20Ace%20account%3A%0A%0A">Request account and data deletion</a></li>
+    </ul>
+    <p>Include the email address tied to your account where possible so we can verify you. We will process requests within a reasonable time, subject to applicable law.</p>
+
+    <h2>5. How long we keep data</h2>
+    <p>We retain your account and app data for as long as your account exists and you use the service, until you delete data or the account as described in <strong>section 4</strong>.</p>
+    <p>You can also email us at the contact address in section 1 if you need help. Rare legal or technical limits may still apply in exceptional cases.</p>
+
+    <h2>6. Children’s privacy</h2>
+    <p><strong>Exam Ace is not intended for children under 13.</strong> We do not knowingly collect personal information from children under 13. If you believe a child under 13 has provided us with personal information, contact us at the address above and we will take steps to delete it where required by law.</p>
+    <p>If your store listing targets users under 13, you must comply with additional rules (including parental consent where applicable). This policy alone is not legal advice; consult qualified counsel for COPPA, GDPR-K, or local child-protection rules.</p>
+
+    <h2>7. Your rights</h2>
+    <p>Depending on where you live, you may have rights to access, correct, delete, or export your personal data, or to object to certain processing. To exercise these rights, use <strong>section 4</strong> (including the email link there), contact us using the contact information in section 1, or use <strong>Clear all data</strong> / <strong>Delete account</strong> in the app where applicable. You can also manage some data through your <strong>Google Account</strong> and Google’s tools where applicable.</p>
+
+    <h2>8. International users</h2>
+    <p>If you use the app from outside your home country, your information may be processed in countries where our service providers (including Google) operate facilities, including the United States and other regions described in their policies.</p>
+
+    <h2>9. Changes to this policy</h2>
+    <p>We may update this policy from time to time. We will post the new version at the same URL (or update the “Last updated” date) and, where required, provide additional notice. Continued use of the app after changes means you accept the updated policy.</p>
+
+    <h2>10. Disclaimer</h2>
+    <p>This document is provided to support transparency for app stores and users. It is <strong>not</strong> legal advice. For regulated or high-risk use cases, consult a qualified lawyer.</p>
+
+    <p class="note">Keep this page in sync with <code>PRIVACY.md</code> in the repository when you change the policy.</p>
+  </main>
+</body>
+</html>

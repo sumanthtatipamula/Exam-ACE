@@ -1,0 +1,11 @@
+# Copy to android/key.properties (gitignored) and fill in your upload keystore.
+# See README_SIGNING.md in this folder.
+# Generate a keystore once:
+#   keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# Keep the .jks file out of git (see .gitignore). Use Play App Signing — Google holds the app signing key.
+
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=../upload-keystore.jks

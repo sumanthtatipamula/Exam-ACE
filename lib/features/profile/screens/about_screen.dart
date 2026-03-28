@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:exam_ace/core/constants/app_strings.dart';
+import 'package:exam_ace/core/constants/legal_urls.dart';
+import 'package:exam_ace/core/utils/snackbar_helpers.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// About the app — features and audience (govt. & competitive exam prep).
 class AboutScreen extends StatefulWidget {
@@ -92,7 +95,7 @@ class _AboutScreenState extends State<AboutScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'v1.0.0',
+              'v1.0.2',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
                 letterSpacing: 0.3,
@@ -102,15 +105,20 @@ class _AboutScreenState extends State<AboutScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
-                'Built for aspirants targeting government and other '
-                'competitive exams in India — SSC, UPSC, banking, railway, '
-                'state PSCs, and more. Organise your prep and see progress clearly.',
+                'For people preparing for competitive exams (e.g. SSC, UPSC, '
+                'banking, railway, state PSCs). Exam Ace is a private planner — '
+                'not a government app. You add your own syllabus and data.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   height: 1.45,
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+            _DisclaimerAndSourcesCard(
+              theme: theme,
+              onOpenUrl: (url) => _openLegalUrl(context, url),
             ),
             const SizedBox(height: 28),
             Align(
@@ -249,10 +257,65 @@ class _AboutScreenState extends State<AboutScreen> {
               ),
               textAlign: TextAlign.center,
             ),
+            if (kPrivacyPolicyUrl.isNotEmpty ||
+                kAccountDeletionRequestUrl.isNotEmpty) ...[
+              const SizedBox(height: 28),
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 4,
+                runSpacing: 0,
+                children: [
+                  if (kPrivacyPolicyUrl.isNotEmpty)
+                    TextButton(
+                      onPressed: () =>
+                          _openLegalUrl(context, kPrivacyPolicyUrl),
+                      child: const Text('Privacy policy'),
+                    ),
+                  if (kPrivacyPolicyUrl.isNotEmpty &&
+                      kAccountDeletionRequestUrl.isNotEmpty)
+                    Text(
+                      '·',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  if (kAccountDeletionRequestUrl.isNotEmpty)
+                    TextButton(
+                      onPressed: () => _openLegalUrl(
+                        context,
+                        kAccountDeletionRequestUrl,
+                      ),
+                      child: const Text('Request data deletion'),
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _openLegalUrl(BuildContext context, String urlString) async {
+    final uri = Uri.tryParse(urlString);
+    if (uri == null || !uri.hasScheme) {
+      if (context.mounted) {
+        showErrorSnackBar(context, 'Invalid link');
+      }
+      return;
+    }
+    try {
+      final ok =
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) {
+        showErrorSnackBar(context, 'Could not open link');
+      }
+    } on Object catch (_) {
+      if (context.mounted) {
+        showErrorSnackBar(context, 'Could not open link');
+      }
+    }
   }
 }
 
@@ -379,6 +442,92 @@ class _WeekScoreExplainer extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Play policy: visible disclaimer + links to official .gov sources for exam info.
+class _DisclaimerAndSourcesCard extends StatelessWidget {
+  final ThemeData theme;
+  final void Function(String url) onOpenUrl;
+
+  const _DisclaimerAndSourcesCard({
+    required this.theme,
+    required this.onOpenUrl,
+  });
+
+  static const _sources = <(String label, String url)>[
+    ('UPSC — upsc.gov.in', 'https://upsc.gov.in'),
+    ('SSC — ssc.gov.in', 'https://ssc.gov.in'),
+    ('Indian Railways — indianrailways.gov.in', 'https://indianrailways.gov.in'),
+    ('National portal — india.gov.in', 'https://www.india.gov.in'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = theme.colorScheme;
+    return Card(
+      elevation: 0,
+      color: cs.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: cs.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.gavel_rounded, size: 22, color: cs.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Disclaimer & official sources',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Exam Ace is not affiliated with any government, exam '
+              'commission, or employer. It does not publish official '
+              'notifications or rules — only what you enter. For authentic '
+              'exam information, use official websites (examples below).',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Open official sites',
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ..._sources.map(
+              (e) => Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => onOpenUrl(e.$2),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text(e.$1),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

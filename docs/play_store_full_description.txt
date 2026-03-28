@@ -1,0 +1,77 @@
+DISCLAIMER — NOT A GOVERNMENT APP
+
+Exam Ace is an independent app from a private developer. It is not affiliated with, endorsed by, sponsored by, or operated by any government, public sector employer, exam conducting body, or commission (including SSC, UPSC, railway recruitment authorities, banking recruitment bodies, state PSCs, or similar). Exam Ace does not represent a government entity.
+
+WHAT INFORMATION THIS APP PROVIDES
+
+Exam Ace is a personal study planner and progress tracker only. You type in your own syllabus, tasks, mock scores, and exam reminders. The app does not publish or republish official government notifications, gazettes, official syllabi, eligibility rules, admit cards, or results. Anything you see in the app is information you or your sources added — not an official feed from any authority.
+
+OFFICIAL SOURCES FOR GOVERNMENT / EXAM INFORMATION (HTTPS)
+
+Always verify notifications, dates, and rules on official sites. Examples of authoritative Indian government portals:
+
+• Union Public Service Commission — https://upsc.gov.in
+• Staff Selection Commission — https://ssc.gov.in
+• Indian Railways (official) — https://indianrailways.gov.in
+• National Portal of India — https://www.india.gov.in
+
+For state-level exams, use your state government’s official .gov website or the relevant state public service commission site published on that government’s portal.
+
+---
+
+Exam ACE is your personal command centre for organising competitive exam preparation. Bring your syllabus, daily plan, mock tests, and real exam attempts into one calm, structured workspace — so you always know what to study next and how consistent you have been.
+
+WHAT YOU CAN DO
+
+Syllabus at a glance
+Split subjects into chapters and topics. Mark completion as you go so gaps show up before the real exam — no more guessing what you skipped.
+
+Daily tasks that match your plan
+Schedule tasks on specific dates. Home highlights what matters today, so you open the app and act instead of scrolling.
+
+Mock tests with context
+Log mock scores, tie attempts to subjects or topics when you want, and read trends from colour‑coded charts on subject screens. See how practice connects to the syllabus you defined.
+
+Real exams, separate from mocks
+Record upcoming and completed exam attempts — actual exams, not practice. Track “yet to take” or add marks when results are out, alongside your mock history.
+
+Calendar history
+Jump to any past date to see what you completed. Dots show full, partial, or light work at a glance — useful for reviewing streaks and weak stretches.
+
+Weekly pulse
+A week‑at‑a‑glance view of consistency. In Profile you can choose how the headline week percentage is calculated (for example emphasising strong days or penalising a weak day), so the number matches how you like to think about discipline.
+
+Reminders that respect your flow
+Optional morning and evening nudges — local reminders on your device — so you start with intent and end with an honest review, without your full notes leaving your phone for notification text.
+
+WHO IT IS FOR
+
+Many users use Exam Ace while preparing for competitive recruitment exams commonly associated with public-sector careers in India (for example SSC, UPSC, banking, railway, state PSCs, and similar goals). Exam Ace does not provide those employers’ or commissions’ official material — it helps you organise whatever plan and content you already use.
+
+ACCOUNT, PRIVACY, AND TRUST
+
+Sign‑in keeps your data synced and backed up in the cloud. The app links to a privacy policy where you can see how information is handled, and where to request deletion of your data or account when you need to. Exam ACE does not integrate third‑party advertising SDKs to monetise your screen time.
+
+A NOTE ON HOW TO USE IT
+
+Start by adding one subject and a rough chapter list — you can refine topics later. Add a few tasks for this week and log one mock when you can; the value grows as the calendar fills. Use Profile to tune week % logic and syllabus order so the app feels like yours.
+
+PROFILE AND CUSTOMISATION
+
+Choose light or dark theme and accent colours that reduce eye strain during long sessions. Reorder how chapters and topics appear in your syllabus view if your coaching or book order differs from the default. Your week percentage formula is a preference, not a judgement — pick the mode that motivates you to show up every day.
+
+STAYING ORGANISED ACROSS SUBJECTS
+
+Juggling quantitative, reasoning, English, and GS is easier when each subject has its own tree. Pin mock performance to the topic you were revising so review days have context. When a real exam date approaches, use the exam section so mocks and finals do not blur together in your head.
+
+DATA AND PEACE OF MIND
+
+Your study data is tied to your account and stored using industry‑standard cloud services described in the privacy policy. You can clear cloud data or delete your account from the app when you want a fresh start or to leave the service. Images you add for profile or subject covers are optional; the app only uses the camera or gallery when you choose to attach a photo.
+
+WHAT EXAM ACE IS NOT
+
+It is not a question bank, not a live class, and not a substitute for coaching or official notifications. It does not promise a rank or selection — it helps you execute the plan you already believe in, with less chaos.
+
+If something confuses you, open About for how weekly progress works.
+
+We wish you clarity in planning and confidence on exam day.

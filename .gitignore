@@ -8,6 +8,9 @@ lib/firebase_options.dart
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 
+# Local tooling (store asset generator venv)
+.venv_store_assets/
+
 # Miscellaneous
 *.class
 *.log
@@ -55,6 +58,9 @@ app.*.map.json
 /android/app/release
 
 # Android release signing (never commit secrets)
+# Real files: android/key.properties + android/upload-keystore.jks (see android/README_SIGNING.md)
+# Committed template: android/key.properties.example
 **/android/key.properties
+android/upload-keystore.jks
 *.jks
 *.keystore

@@ -15,8 +15,10 @@ import 'package:exam_ace/core/settings/metric_formula_mode.dart';
 import 'package:exam_ace/core/settings/metric_formula_provider.dart';
 import 'package:exam_ace/core/settings/syllabus_sort_mode.dart';
 import 'package:exam_ace/core/settings/syllabus_sort_provider.dart';
+import 'package:exam_ace/core/constants/legal_urls.dart';
 import 'package:exam_ace/features/profile/widgets/change_password_sheet.dart';
 import 'package:exam_ace/features/profile/widgets/syllabus_sort_sheet.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -372,6 +374,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _ProfileAboutNavCard(
             onTap: () => context.push('/about'),
           ),
+          if (kPrivacyPolicyUrl.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _ProfileTile(
+              icon: Icons.privacy_tip_outlined,
+              title: 'Privacy policy',
+              subtitle: 'Opens in browser',
+              onTap: () {
+                _openExternalUrl(kPrivacyPolicyUrl);
+              },
+            ),
+          ],
+          if (kAccountDeletionRequestUrl.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _ProfileTile(
+              icon: Icons.person_remove_outlined,
+              title: 'Request data deletion',
+              subtitle: 'Account deletion and email request — opens in browser',
+              onTap: () => _openExternalUrl(kAccountDeletionRequestUrl),
+            ),
+          ],
           const SizedBox(height: 20),
           _ProfileSectionHeader(
             title: 'Data & account',
@@ -429,11 +451,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Future<void> _openExternalUrl(String urlString) async {
+    final uri = Uri.tryParse(urlString);
+    if (uri == null || !uri.hasScheme) {
+      if (mounted) {
+        showErrorSnackBar(context, 'Invalid link');
+      }
+      return;
+    }
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        showErrorSnackBar(context, 'Could not open link');
+      }
+    } on Object catch (_) {
+      if (mounted) {
+        showErrorSnackBar(context, 'Could not open link');
+      }
+    }
+  }
+
   String _providerLabel(User? user) {
     final providers =
         user?.providerData.map((p) => p.providerId).toSet() ?? {};
     if (providers.contains('google.com')) return 'Signed in with Google';
-    if (providers.contains('facebook.com')) return 'Signed in with Facebook';
     return 'OAuth';
   }
 }
