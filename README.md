@@ -78,13 +78,33 @@ Use your own signing keys for store releases; do not commit `key.properties`, `.
 
 5. **Privacy policy (live):** [https://sumanthtatipamula.github.io/Exam-ACE/](https://sumanthtatipamula.github.io/Exam-ACE/) — paste this **exact URL** into **Google Play Console → App content → Privacy policy**. Profile → **Privacy policy** in the app opens the same link. Keep **[PRIVACY.md](PRIVACY.md)** and **`docs/index.html`** in sync when you change the policy, then push so GitHub Pages updates.
 
+## Web-based email verification & password reset
+
+Email verification and password reset are handled **in the browser** — no dependency on deep links.
+
+- **Verify email:** `https://examace.sumanthtatipamula.com/verify-email?token=...`
+- **Reset password:** `https://examace.sumanthtatipamula.com/reset-password?token=...`
+
+These pages are served by **Firebase Hosting** with a custom domain (`examace.sumanthtatipamula.com`) and call Cloud Function HTTP endpoints (`verifyEmailTokenHttp`, `resetPasswordHttp`) via hosting rewrites. The pages use **Tailwind CSS** for responsive design across all devices.
+
+To deploy hosting + functions:
+
+```bash
+firebase deploy --only functions,hosting
+```
+
+See **[FIREBASE_FUNCTIONS_SETUP.md](FIREBASE_FUNCTIONS_SETUP.md)** for full details.
+
 ## Project layout (high level)
 
 | Path | Purpose |
 |------|---------|
-| `lib/app.dart`, `lib/main.dart` | App entry, routing |
+| `lib/app.dart`, `lib/main.dart` | App entry, routing, deep link handling |
 | `lib/core/` | Theme, settings, router, utilities |
 | `lib/features/` | Feature screens (auth, home, subjects, mocks, exams, profile, …) |
+| `functions/index.js` | Firebase Cloud Functions (email, verification, reset) |
+| `public/` | Firebase Hosting static pages (verify-email, reset-password) |
+| `firebase.json` | Hosting rewrites, functions config |
 | `firestore.rules`, `storage.rules` | Firebase security rules |
 
 ## Week % modes (headline metric)

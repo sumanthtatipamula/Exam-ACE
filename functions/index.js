@@ -1,4 +1,4 @@
-const {onCall} = require('firebase-functions/v2/https');
+const {onCall, onRequest} = require('firebase-functions/v2/https');
 const {defineSecret} = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const fetch = require('node-fetch');
@@ -93,9 +93,8 @@ exports.sendPasswordResetEmail = onCall(
       try {
         userRecord = await admin.auth().getUserByEmail(normalizedEmail);
       } catch (error) {
-        // Don't reveal if email exists or not (security best practice)
         console.log('User not found for email:', normalizedEmail);
-        return {success: true}; // Return success anyway
+        throw new Error('No account found with this email address');
       }
 
       // Generate secure random token
@@ -122,7 +121,7 @@ exports.sendPasswordResetEmail = onCall(
       // Build reset link - use a web URL that can redirect to app
       // For now, use Firebase hosting or your domain
       // This will open in browser and can be handled by your app
-      const resetLink = `https://exam-ace-db272.web.app/reset-password?token=${token}`;
+      const resetLink = `https://examace.sumanthtatipamula.com/reset-password?token=${token}`;
       
       // Get user's display name
       const userName = userRecord.displayName || normalizedEmail.split('@')[0];
@@ -135,7 +134,7 @@ exports.sendPasswordResetEmail = onCall(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'Exam Ace <noreply@resend.dev>', // Update with your verified domain
+          from: 'Exam Ace <noreply@sumanthtatipamula.com>',
           to: [normalizedEmail],
           subject: 'Reset your Exam Ace password',
           html: buildPasswordResetEmailHtml(userName, resetLink),
@@ -271,7 +270,7 @@ exports.sendEmailVerification = onCall(
         });
 
       // Build verification link - use a web URL that can redirect to app
-      const verificationLink = `https://exam-ace-db272.web.app/verify-email?token=${token}`;
+      const verificationLink = `https://examace.sumanthtatipamula.com/verify-email?token=${token}`;
 
       // Send email via Resend
       const response = await fetch('https://api.resend.com/emails', {
@@ -281,7 +280,7 @@ exports.sendEmailVerification = onCall(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'Exam Ace <noreply@resend.dev>', // Update with your verified domain
+          from: 'Exam Ace <noreply@sumanthtatipamula.com>',
           to: [normalizedEmail],
           subject: 'Verify your Exam Ace account',
           html: buildVerificationEmailHtml(userName, verificationLink),
@@ -359,6 +358,111 @@ exports.verifyEmailToken = onCall(async (request) => {
   } catch (error) {
     console.error('Error verifying email token:', error);
     throw new Error(error.message || 'Failed to verify email');
+  }
+});
+
+/**
+ * HTTP endpoint: Verify email token (called from web page)
+ */
+exports.verifyEmailTokenHttp = onRequest({cors: true}, async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({error: 'Method not allowed'});
+    return;
+  }
+
+  const {token} = req.body;
+  if (!token) {
+    res.status(400).json({error: 'Token is required'});
+    return;
+  }
+
+  try {
+    const tokenDoc = await admin.firestore()
+      .collection('emailVerificationTokens')
+      .doc(token)
+      .get();
+
+    if (!tokenDoc.exists) {
+      res.status(400).json({error: 'Invalid or expired verification link'});
+      return;
+    }
+
+    const tokenData = tokenDoc.data();
+
+    if (tokenData.used) {
+      res.status(400).json({error: 'This verification link has already been used. Your email is already verified!'});
+      return;
+    }
+
+    const now = admin.firestore.Timestamp.now();
+    if (now.toMillis() > tokenData.expiresAt.toMillis()) {
+      res.status(400).json({error: 'This verification link has expired'});
+      return;
+    }
+
+    const userRecord = await admin.auth().getUserByEmail(tokenData.email);
+    await admin.auth().updateUser(userRecord.uid, {emailVerified: true});
+    await tokenDoc.ref.update({used: true});
+
+    res.json({success: true, message: 'Email verified successfully'});
+  } catch (error) {
+    console.error('Error verifying email token:', error);
+    res.status(500).json({error: error.message || 'Failed to verify email'});
+  }
+});
+
+/**
+ * HTTP endpoint: Reset password (called from web page)
+ */
+exports.resetPasswordHttp = onRequest({cors: true}, async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({error: 'Method not allowed'});
+    return;
+  }
+
+  const {token, newPassword} = req.body;
+  if (!token || !newPassword) {
+    res.status(400).json({error: 'Token and new password are required'});
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    res.status(400).json({error: 'Password must be at least 6 characters'});
+    return;
+  }
+
+  try {
+    const tokenDoc = await admin.firestore()
+      .collection('passwordResetTokens')
+      .doc(token)
+      .get();
+
+    if (!tokenDoc.exists) {
+      res.status(400).json({error: 'Invalid or expired reset link'});
+      return;
+    }
+
+    const tokenData = tokenDoc.data();
+
+    if (tokenData.used) {
+      res.status(400).json({error: 'This reset link has already been used'});
+      return;
+    }
+
+    const now = admin.firestore.Timestamp.now();
+    if (now.toMillis() > tokenData.expiresAt.toMillis()) {
+      res.status(400).json({error: 'This reset link has expired'});
+      return;
+    }
+
+    const userRecord = await admin.auth().getUserByEmail(tokenData.email);
+    await admin.auth().updateUser(userRecord.uid, {password: newPassword});
+    await tokenDoc.ref.update({used: true});
+
+    res.json({success: true, message: 'Password updated successfully'});
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({error: error.message || 'Failed to reset password'});
   }
 });
 

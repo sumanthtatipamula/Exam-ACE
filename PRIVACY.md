@@ -103,12 +103,14 @@ You should review:
 
 We do not control how Google or Resend process data when you use their services; that is governed by their respective terms and your account choices.
 
-### 3.1 Email communications
+### 3.1 Email communications and web-based verification
 
 When you create an account or request a password reset, we may send you transactional emails through **Resend** (via **Firebase Cloud Functions**). These emails include:
 
 - **Account verification emails** when you sign up
 - **Password reset emails** when you request to reset your password
+
+Clicking a link in these emails opens a web page hosted on **Firebase Hosting** at `examace.sumanthtatipamula.com`. These pages perform the verification or password reset action directly in your browser by calling our Cloud Functions. No additional personal data is collected on these pages beyond the one-time-use token already in the link.
 
 We only send emails necessary for account security and functionality. We do **not** send marketing emails or newsletters. Your email address is shared with Resend only for the purpose of delivering these transactional messages.
 

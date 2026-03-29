@@ -222,6 +222,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         textInputAction: TextInputAction.next,
+                        enableInteractiveSelection: true,
                         decoration: InputDecoration(
                           labelText: 'New Password',
                           prefixIcon: const Icon(Icons.lock_outlined),
@@ -248,6 +249,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         controller: _confirmPasswordController,
                         obscureText: _obscureConfirmPassword,
                         textInputAction: TextInputAction.done,
+                        enableInteractiveSelection: true,
                         decoration: InputDecoration(
                           labelText: 'Confirm Password',
                           prefixIcon: const Icon(Icons.lock_outlined),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:exam_ace/core/constants/input_limits.dart';
+import 'package:exam_ace/core/constants/app_strings.dart';
 import 'package:exam_ace/core/utils/validators.dart';
 import 'package:exam_ace/core/utils/snackbar_helpers.dart';
 import 'package:exam_ace/features/auth/providers/auth_provider.dart';
@@ -35,27 +36,50 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   Future<void> _signUp() async {
     if (_formKey.currentState?.validate() != true) return;
     setState(() => _loading = true);
+    
+    // Read auth service before any async operations
+    final authService = ref.read(authServiceProvider);
+    final email = _emailController.text.trim();
+    final name = _nameController.text.trim();
+    
     try {
-      await ref.read(authServiceProvider).signUpWithEmail(
-            _emailController.text.trim(),
+      await authService.signUpWithEmail(
+            email,
             _passwordController.text,
-            _nameController.text.trim(),
+            name,
           );
       
-      // Send verification email via Cloud Function
+      // Send verification email via Cloud Function (must be done while user is authenticated)
       try {
-        await ref.read(authServiceProvider).sendEmailVerification(
-              _emailController.text.trim(),
-              _nameController.text.trim(),
-            );
-      } catch (e) {
-        // Don't block signup if email fails to send
-        print('Failed to send verification email: $e');
+        print('Attempting to send verification email to: $email');
+        await authService.sendEmailVerification(email, name);
+        print('Verification email sent successfully');
+      } catch (emailError) {
+        print('ERROR sending verification email: $emailError');
+        // Delete the account if email fails - user must try again
+        try {
+          await authService.currentUser?.delete();
+        } catch (deleteError) {
+          print('Failed to delete account: $deleteError');
+        }
+        await authService.signOut();
+        
+        if (mounted) {
+          showErrorSnackBar(
+            context,
+            'Failed to send verification email. Please try signing up again or contact support.',
+          );
+          setState(() => _loading = false);
+        }
+        return; // Stop here, don't navigate to verification screen
       }
       
+      // Sign out user - they must verify email before signing in
+      await authService.signOut();
+      
       if (mounted) {
-        showSuccessSnackBar(
-            context, 'Account created! Check your email to verify your account.');
+        // Navigate to verification pending screen
+        context.go('/email-verification-pending?email=${Uri.encodeComponent(email)}');
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) showErrorSnackBar(context, friendlyAuthError(e));
@@ -114,6 +138,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       controller: _nameController,
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
+                      enableInteractiveSelection: true,
                       maxLength: InputLimits.displayName,
                       decoration: const InputDecoration(
                         labelText: 'Full Name',
@@ -135,6 +160,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
+                      enableInteractiveSelection: true,
                       decoration: const InputDecoration(
                         labelText: 'Email',
                         prefixIcon: Icon(Icons.email_outlined),
@@ -146,6 +172,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.next,
+                      enableInteractiveSelection: true,
                       decoration: InputDecoration(
                         labelText: 'Password',
                         prefixIcon: const Icon(Icons.lock_outlined),
@@ -168,6 +195,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       controller: _confirmController,
                       obscureText: true,
                       textInputAction: TextInputAction.done,
+                      enableInteractiveSelection: true,
                       decoration: const InputDecoration(
                         labelText: 'Confirm Password',
                         prefixIcon: Icon(Icons.lock_outlined),

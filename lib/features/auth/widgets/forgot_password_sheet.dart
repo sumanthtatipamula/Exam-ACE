@@ -17,6 +17,7 @@ class _ForgotPasswordSheetState extends ConsumerState<ForgotPasswordSheet> {
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
   bool _emailSent = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -41,8 +42,12 @@ class _ForgotPasswordSheetState extends ConsumerState<ForgotPasswordSheet> {
       }
     } on Object catch (e) {
       if (mounted) {
-        setState(() => _loading = false);
-        showErrorSnackBar(context, friendlyAuthError(e));
+        setState(() {
+          _loading = false;
+          _errorMessage = friendlyAuthError(e);
+        });
+        // Trigger form validation to show error
+        _formKey.currentState?.validate();
       }
     }
   }
@@ -110,12 +115,24 @@ class _ForgotPasswordSheetState extends ConsumerState<ForgotPasswordSheet> {
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.done,
                 autofocus: true,
-                decoration: const InputDecoration(
+                enableInteractiveSelection: true,
+                decoration: InputDecoration(
                   labelText: 'Email',
-                  prefixIcon: Icon(Icons.email_outlined),
+                  prefixIcon: const Icon(Icons.email_outlined),
                   hintText: 'your.email@example.com',
+                  errorText: _errorMessage,
+                  errorMaxLines: 3,
                 ),
-                validator: validateEmail,
+                validator: (value) {
+                  if (_errorMessage != null) return _errorMessage;
+                  return validateEmail(value);
+                },
+                onChanged: (_) {
+                  // Clear error when user starts typing
+                  if (_errorMessage != null) {
+                    setState(() => _errorMessage = null);
+                  }
+                },
                 onFieldSubmitted: (_) => _sendResetEmail(),
               ),
             ),

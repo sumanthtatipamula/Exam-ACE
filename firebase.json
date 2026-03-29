@@ -17,6 +17,14 @@
     ],
     "rewrites": [
       {
+        "source": "/api/verify-email",
+        "function": "verifyEmailTokenHttp"
+      },
+      {
+        "source": "/api/reset-password",
+        "function": "resetPasswordHttp"
+      },
+      {
         "source": "/reset-password",
         "destination": "/reset-password.html"
       },

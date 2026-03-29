@@ -8,6 +8,7 @@
   - `ios/Runner/GoogleService-Info.plist`  
   Copy the matching `*.example` files, then run **`flutterfire configure`** (recommended) or paste values from [Firebase Console](https://console.firebase.google.com/) → Project settings. Restrict keys with [Firebase App Check](https://firebase.google.com/docs/app-check) for production builds.
 - **Secrets**: do not commit keystores, `key.properties`, or `.env` files (see `.gitignore`).
+- **HTTP endpoints** (`verifyEmailTokenHttp`, `resetPasswordHttp`) are `onRequest` functions with CORS enabled, proxied through Firebase Hosting rewrites at `/api/verify-email` and `/api/reset-password`. They validate one-time tokens from Firestore and do not accept authentication headers — the token itself is the auth. Tokens are single-use and time-limited.
 
 ### First-time setup after clone
 

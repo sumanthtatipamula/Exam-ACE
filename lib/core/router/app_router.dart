@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:exam_ace/core/router/go_router_refresh_stream.dart';
@@ -6,6 +7,7 @@ import 'package:exam_ace/features/auth/screens/sign_in_screen.dart';
 import 'package:exam_ace/features/auth/screens/sign_up_screen.dart';
 import 'package:exam_ace/features/auth/screens/reset_password_screen.dart';
 import 'package:exam_ace/features/auth/screens/verify_email_screen.dart';
+import 'package:exam_ace/features/auth/screens/email_verification_pending_screen.dart';
 import 'package:exam_ace/features/splash/screens/splash_screen.dart';
 import 'package:exam_ace/features/dashboard/screens/dashboard_screen.dart';
 import 'package:exam_ace/features/calendar/screens/calendar_screen.dart';
@@ -13,6 +15,9 @@ import 'package:exam_ace/features/subjects/screens/subject_detail_screen.dart';
 import 'package:exam_ace/features/subjects/screens/chapter_detail_screen.dart';
 import 'package:exam_ace/features/profile/screens/notifications_screen.dart';
 import 'package:exam_ace/features/profile/screens/about_screen.dart';
+
+// Provider for initial deep link location
+final initialDeepLinkProvider = StateProvider<String?>((ref) => null);
 
 final routerProvider = Provider<GoRouter>((ref) {
   final firebaseAuth = ref.watch(firebaseAuthProvider);
@@ -22,15 +27,51 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     refreshListenable: refresh,
+    debugLogDiagnostics: true,
+    errorBuilder: (context, state) {
+      print('Router error: ${state.error}');
+      return Scaffold(
+        body: Center(
+          child: Text('Navigation error: ${state.error}'),
+        ),
+      );
+    },
     redirect: (context, state) {
-      final isLoggedIn = firebaseAuth.currentUser != null;
+      final user = firebaseAuth.currentUser;
+      final isLoggedIn = user != null;
+      final isEmailVerified = user?.emailVerified ?? false;
       final path = state.matchedLocation;
-      final isAuthRoute = path == '/sign-in' || path == '/sign-up';
-      final isSplash = path == '/';
+      
+      // Logged-in verified user on auth pages → send to main
+      if (isLoggedIn && isEmailVerified) {
+        if (path == '/' || path == '/sign-in' || path == '/sign-up') {
+          return '/main';
+        }
+      }
 
-      if (isSplash) return null;
-      if (!isLoggedIn && !isAuthRoute) return '/sign-in';
-      if (isLoggedIn && isAuthRoute) return '/main';
+      // Always allow these routes without any auth checks
+      if (path == '/' || 
+          path == '/sign-in' || 
+          path == '/sign-up' ||
+          path.startsWith('/reset-password') || 
+          path.startsWith('/verify-email') ||
+          path.startsWith('/email-verification-pending')) {
+        return null;
+      }
+      
+      // Protected routes (main, calendar, etc.)
+      // Not logged in - redirect to sign-in
+      if (!isLoggedIn) {
+        return '/sign-in';
+      }
+      
+      // Logged in but email not verified - sign out and redirect
+      if (!isEmailVerified) {
+        firebaseAuth.signOut();
+        return '/sign-in';
+      }
+      
+      // User is logged in and verified - allow access
       return null;
     },
     routes: [
@@ -63,6 +104,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final token = state.uri.queryParameters['token'] ?? '';
           return VerifyEmailScreen(token: token);
+        },
+      ),
+      GoRoute(
+        path: '/email-verification-pending',
+        name: 'emailVerificationPending',
+        builder: (context, state) {
+          final email = state.uri.queryParameters['email'] ?? '';
+          return EmailVerificationPendingScreen(email: email);
         },
       ),
       GoRoute(

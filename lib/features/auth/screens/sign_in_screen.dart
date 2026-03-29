@@ -42,11 +42,37 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   Future<void> _signInWithEmail() async {
     if (_formKey.currentState?.validate() != true) return;
-    await _signInWithProvider(() =>
-        ref.read(authServiceProvider).signInWithEmail(
-              _emailController.text.trim(),
-              _passwordController.text,
-            ));
+    setState(() => _loading = true);
+    try {
+      final credential = await ref.read(authServiceProvider).signInWithEmail(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+      
+      // Reload user to get latest emailVerified status from server.
+      // The verifyEmailToken cloud function sets emailVerified server-side,
+      // but the client SDK caches the old value until reload() is called.
+      await credential.user?.reload();
+      final freshUser = ref.read(firebaseAuthProvider).currentUser;
+
+      // Check if email is verified
+      if (freshUser != null && !freshUser.emailVerified) {
+        // Sign out unverified user
+        await ref.read(authServiceProvider).signOut();
+        if (mounted) {
+          showErrorSnackBar(
+            context,
+            'Please verify your email before signing in. Check your inbox for the verification link.',
+          );
+        }
+      } else if (mounted) {
+        context.go('/main');
+      }
+    } on Object catch (e) {
+      if (mounted) showErrorSnackBar(context, friendlyAuthError(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _showForgotPasswordSheet(BuildContext context) {
@@ -97,6 +123,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
+                        enableInteractiveSelection: true,
                         decoration: const InputDecoration(
                           labelText: 'Email',
                           prefixIcon: Icon(Icons.email_outlined),
@@ -108,6 +135,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         textInputAction: TextInputAction.done,
+                        enableInteractiveSelection: true,
                         decoration: InputDecoration(
                           labelText: 'Password',
                           prefixIcon: const Icon(Icons.lock_outlined),

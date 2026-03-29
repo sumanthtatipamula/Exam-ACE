@@ -46,9 +46,14 @@ firebase functions:secrets:access RESEND_API_KEY
 firebase deploy --only functions
 ```
 
-This will deploy two functions:
-- `sendVerificationEmail` - For user signup verification
-- `sendPasswordResetEmail` - For password reset emails
+This will deploy the following functions:
+- `sendVerificationEmail` - For user signup verification (callable)
+- `sendPasswordResetEmail` - For password reset emails (callable)
+- `verifyEmailToken` - Verify email token (callable, used by the Flutter app)
+- `verifyPasswordResetToken` - Reset password with token (callable, used by the Flutter app)
+- `verifyEmailTokenHttp` - Verify email token (HTTP endpoint, used by web pages)
+- `resetPasswordHttp` - Reset password with token (HTTP endpoint, used by web pages)
+- `sendEmailVerification` - Send email verification (callable)
 
 ## 📱 Flutter App Setup
 
@@ -206,6 +211,34 @@ firebase deploy --only functions:sendVerificationEmail
 - Use callable functions (already configured)
 - Callable functions handle CORS automatically
 
+## 🌐 Firebase Hosting & Web Pages
+
+### Custom domain
+
+The web pages are served at **`examace.sumanthtatipamula.com`** via Firebase Hosting with a CNAME DNS record pointing to `exam-ace-db272.web.app`.
+
+### Hosting rewrites (`firebase.json`)
+
+| Path | Target |
+|------|--------|
+| `/api/verify-email` | `verifyEmailTokenHttp` Cloud Function |
+| `/api/reset-password` | `resetPasswordHttp` Cloud Function |
+| `/verify-email` | `verify-email.html` |
+| `/reset-password` | `reset-password.html` |
+
+### Web pages
+
+- **`public/verify-email.html`** — Automatically calls `/api/verify-email` on page load to verify the user's email. Shows loading → success/error states.
+- **`public/reset-password.html`** — Displays a password form. On submit, calls `/api/reset-password` to update the password. Shows form → success/error states.
+
+Both pages use **Tailwind CSS** (CDN) for responsive design across all devices.
+
+### Deploy hosting + functions
+
+```bash
+firebase deploy --only functions,hosting
+```
+
 ## 📝 Next Steps
 
 1. ✅ Deploy functions: `firebase deploy --only functions`
@@ -214,6 +247,8 @@ firebase deploy --only functions:sendVerificationEmail
 4. ✅ Update sender email in functions
 5. ✅ Monitor usage and logs
 6. ✅ Build and distribute APK (API key stays secure!)
+7. ✅ Deploy hosting: `firebase deploy --only hosting`
+8. ✅ Test web-based verification and password reset in browser
 
 ## 🎯 Build & Distribute
 

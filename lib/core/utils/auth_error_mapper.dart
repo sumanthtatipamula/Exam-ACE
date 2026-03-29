@@ -1,7 +1,23 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 String friendlyAuthError(Object e) {
+  // Handle Cloud Functions errors first
+  if (e is FirebaseFunctionsException) {
+    // Try to extract the actual error message from details
+    final details = e.details;
+    if (details != null && details is String && details.isNotEmpty) {
+      return details;
+    }
+    // Fall back to message
+    final message = e.message;
+    if (message != null && message.isNotEmpty && message != 'INTERNAL') {
+      return message;
+    }
+    // If we only have INTERNAL, return a generic message
+    return 'Something went wrong. Please try again.';
+  }
   if (e is FirebaseAuthException) {
     return switch (e.code) {
       'wrong-password' =>
@@ -40,7 +56,25 @@ String friendlyAuthError(Object e) {
     return 'Sign-in failed. Please try again.';
   }
   if (e is Exception) {
-    return e.toString();
+    final errorString = e.toString();
+    // Extract error message from Cloud Functions errors
+    // Format: "Exception: Error message here"
+    if (errorString.startsWith('Exception: ')) {
+      final message = errorString.substring('Exception: '.length);
+      // Clean up common prefixes
+      if (message.startsWith('[firebase_functions/internal] ')) {
+        return message.substring('[firebase_functions/internal] '.length);
+      }
+      if (message.startsWith('[firebase_functions/')) {
+        // Extract just the message part after the error code
+        final parts = message.split('] ');
+        if (parts.length > 1) {
+          return parts[1];
+        }
+      }
+      return message;
+    }
+    return errorString;
   }
   return 'Something went wrong. Please try again.';
 }

@@ -1,33 +1,28 @@
-import 'package:flutter/services.dart';
+import 'package:app_links/app_links.dart';
 
 class DeepLinkService {
-  static const platform = MethodChannel('com.examace.exam_ace/deeplink');
-  static const eventChannel = EventChannel('com.examace.exam_ace/deeplink_stream');
+  static final _appLinks = AppLinks();
 
   /// Get the initial deep link that opened the app (if any)
-  static Future<String?> getInitialLink() async {
+  static Future<Uri?> getInitialLink() async {
     try {
-      final String? link = await platform.invokeMethod('getInitialLink');
-      return link;
+      return await _appLinks.getInitialLink();
     } catch (e) {
-      print('Error getting initial link: $e');
       return null;
     }
   }
 
   /// Stream of deep links received when app is already running
-  static Stream<String> get linkStream {
-    return eventChannel.receiveBroadcastStream().map((dynamic link) => link as String);
+  static Stream<Uri> get linkStream {
+    return _appLinks.uriLinkStream;
   }
 
-  /// Parse a deep link URL and extract the route and parameters
-  static Map<String, dynamic>? parseDeepLink(String? link) {
-    if (link == null || link.isEmpty) return null;
+  /// Parse a deep link URI and extract the route and parameters
+  static Map<String, dynamic>? parseDeepLink(Uri? uri) {
+    if (uri == null) return null;
 
     try {
-      final uri = Uri.parse(link);
-      
-      // Handle examace:// scheme
+      // Handle examace:// scheme (e.g. examace://reset-password?token=abc)
       if (uri.scheme == 'examace') {
         final path = '/${uri.host}';
         final params = uri.queryParameters;
@@ -37,8 +32,22 @@ class DeepLinkService {
           'params': params,
         };
       }
+
+      // Handle HTTPS URLs from Firebase hosting domain
+      if ((uri.scheme == 'https' || uri.scheme == 'http') &&
+          uri.host == 'exam-ace-db272.web.app') {
+        final path = uri.path;
+        final params = uri.queryParameters;
+
+        if (path == '/reset-password' || path == '/verify-email') {
+          return {
+            'path': path,
+            'params': params,
+          };
+        }
+      }
     } catch (e) {
-      print('Error parsing deep link: $e');
+      return null;
     }
     
     return null;

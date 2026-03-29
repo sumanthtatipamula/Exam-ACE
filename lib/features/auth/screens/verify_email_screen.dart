@@ -34,11 +34,11 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
       final functions = FirebaseFunctions.instance;
       final callable = functions.httpsCallable('verifyEmailToken');
       
-      await callable.call({'token': widget.token});
-
-      // Reload user to get updated emailVerified status
-      await ref.read(firebaseAuthProvider).currentUser?.reload();
-
+      final result = await callable.call({'token': widget.token});
+      
+      // Get the email from the result or token data
+      // The user needs to sign in after verification since they were signed out during signup
+      
       if (mounted) {
         setState(() {
           _success = true;
@@ -47,9 +47,15 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final errorMsg = e.toString().replaceAll('Exception: ', '');
         setState(() {
           _loading = false;
-          _errorMessage = e.toString().replaceAll('Exception: ', '');
+          // Show friendly message if link already used
+          if (errorMsg.contains('already been used')) {
+            _errorMessage = 'This verification link has already been used. Your email is already verified! Please sign in to continue.';
+          } else {
+            _errorMessage = errorMsg;
+          }
         });
       }
     }
@@ -105,7 +111,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Your email has been successfully verified. You now have full access to all features.',
+                    'Your email has been successfully verified. You can now sign in to access all features.',
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       height: 1.4,
@@ -117,8 +123,8 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                     width: double.infinity,
                     height: 48,
                     child: FilledButton(
-                      onPressed: () => context.go('/main'),
-                      child: const Text('Continue to App'),
+                      onPressed: () => context.go('/sign-in'),
+                      child: const Text('Go to Sign In'),
                     ),
                   ),
                 ],
@@ -135,13 +141,13 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
         title: const Text('Email Verification'),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
-          onPressed: () => context.go('/main'),
+          onPressed: () => context.go('/sign-in'),
         ),
       ),
       body: SafeArea(
-        child: Center(
+        child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -173,8 +179,8 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                   width: double.infinity,
                   height: 48,
                   child: FilledButton(
-                    onPressed: () => context.go('/main'),
-                    child: const Text('Back to App'),
+                    onPressed: () => context.go('/sign-in'),
+                    child: const Text('Go to Sign In'),
                   ),
                 ),
               ],
