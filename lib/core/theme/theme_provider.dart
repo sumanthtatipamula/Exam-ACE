@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:exam_ace/core/settings/startup_prefs.dart';
 
 final themeModeProvider =
@@ -15,12 +13,7 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 
   Future<void> setMode(ThemeMode mode) async {
     state = mode;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(PrefsKeys.themeMode, mode.name);
-    } on PlatformException {
-      // In-memory mode still applies for this session.
-    }
+    await persistPreferenceString(PrefsKeys.themeMode, mode.name);
   }
 
   Future<void> toggle() async {

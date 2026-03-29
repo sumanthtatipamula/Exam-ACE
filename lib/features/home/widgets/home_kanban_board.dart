@@ -84,6 +84,14 @@ class HomeKanbanBoard extends ConsumerWidget {
         entityKey: homeTaskEntityKey(task),
         progress: next,
       );
+      final carrySet =
+          (ref.read(carryIdsForTodayProvider).valueOrNull ?? []).toSet();
+      if (carrySet.contains(homeTaskEntityKey(task))) {
+        await repo.mergeProgressIntoTodaySnapshot(
+          entityKey: homeTaskEntityKey(task),
+          progress: next,
+        );
+      }
     } on Object catch (e) {
       if (context.mounted) {
         showErrorSnackBar(

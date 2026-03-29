@@ -150,7 +150,19 @@ class SubjectsRepository {
   }
 
   Future<void> addTopic(String subjectId, String chapterId, Topic topic) async {
+    final topicsSnap = await _topicsCol(subjectId, chapterId).get();
+    final hadNoTopics = topicsSnap.docs.isEmpty;
+
     await _topicsCol(subjectId, chapterId).add(topic.toMap());
+
+    // Chapter date/progress are only for chapters with no topics. Once topics exist,
+    // completion and scheduling come from topics — clear stale manual fields.
+    if (hadNoTopics) {
+      await _chaptersCol(subjectId).doc(chapterId).update({
+        'date': FieldValue.delete(),
+        'progress': 0,
+      });
+    }
     await _syncSubjectCompletionDateIfNeeded(subjectId);
   }
 

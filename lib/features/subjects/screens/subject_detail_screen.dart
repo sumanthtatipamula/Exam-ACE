@@ -12,13 +12,21 @@ import 'package:exam_ace/features/mock_test/widgets/linked_mock_test_views.dart'
 import 'package:exam_ace/features/subjects/widgets/add_chapter_sheet.dart';
 import 'package:exam_ace/shared/widgets/confirm_delete_dialog.dart';
 
-class SubjectDetailScreen extends ConsumerWidget {
+class SubjectDetailScreen extends ConsumerStatefulWidget {
   final String subjectId;
 
   const SubjectDetailScreen({super.key, required this.subjectId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SubjectDetailScreen> createState() => _SubjectDetailScreenState();
+}
+
+class _SubjectDetailScreenState extends ConsumerState<SubjectDetailScreen> {
+  int _selectedTab = 0; // 0 = Chapters, 1 = Mock Tests
+
+  @override
+  Widget build(BuildContext context) {
+    final subjectId = widget.subjectId;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final repo = ref.read(subjectsRepositoryProvider);
@@ -33,6 +41,11 @@ class SubjectDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(subject?.name ?? 'Subject')),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddChapter(context, repo),
+        tooltip: 'Add chapter',
+        child: const Icon(Icons.add_rounded),
+      ),
       body: chaptersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
@@ -48,6 +61,8 @@ class SubjectDetailScreen extends ConsumerWidget {
 
           final overallCompletion = subjectCompletion(completions);
 
+          final hasMockTests = subjectMockTests.isNotEmpty;
+
           return Column(
             children: [
               Padding(
@@ -60,37 +75,36 @@ class SubjectDetailScreen extends ConsumerWidget {
                   theme: theme,
                 ),
               ),
-              SubjectMockTestsChartSection(
-                tests: subjectMockTests,
-                subjectTitle: subject?.name ?? 'Subject',
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Text('Chapters',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600)),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () => _showAddChapter(context, repo),
-                      icon: Icon(Icons.add_rounded,
-                          color: colorScheme.primary),
-                      style: IconButton.styleFrom(
-                          backgroundColor: Colors.transparent),
-                      tooltip: 'Add chapter',
-                    ),
-                  ],
+              if (hasMockTests)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment<int>(
+                        value: 0,
+                        label: Text('Chapters'),
+                        icon: Icon(Icons.menu_book_rounded, size: 18),
+                      ),
+                      ButtonSegment<int>(
+                        value: 1,
+                        label: Text('Test Reports'),
+                        icon: Icon(Icons.assessment_outlined, size: 18),
+                      ),
+                    ],
+                    selected: {_selectedTab},
+                    onSelectionChanged: (Set<int> s) =>
+                        setState(() => _selectedTab = s.first),
+                  ),
                 ),
-              ),
               const SizedBox(height: 4),
               Expanded(
-                child: chapters.isEmpty
-                    ? Center(
-                        child: Text('No chapters yet. Tap + to add one.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant)))
-                    : ListView.separated(
+                child: _selectedTab == 0
+                    ? chapters.isEmpty
+                        ? Center(
+                            child: Text('No chapters yet. Tap + to add one.',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant)))
+                        : ListView.separated(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 4),
                         itemCount: chapters.length,
@@ -109,6 +123,7 @@ class SubjectDetailScreen extends ConsumerWidget {
                           return _ChapterTile(
                             number: index + 1,
                             chapter: ch,
+                            topicCount: topics.length,
                             completion: comp,
                             onTap: () => context.push(
                                 '/subject/$subjectId/chapter/${ch.id}'),
@@ -135,6 +150,13 @@ class SubjectDetailScreen extends ConsumerWidget {
                             ),
                           );
                         },
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: SubjectMockTestsChartSection(
+                          tests: subjectMockTests,
+                          subjectTitle: subject?.name ?? 'Subject',
+                        ),
                       ),
               ),
             ],
@@ -158,7 +180,7 @@ class SubjectDetailScreen extends ConsumerWidget {
         hasTopics: hasTopics,
         onSave: (name, date, progress) {
           repo.updateChapter(
-            subjectId,
+            widget.subjectId,
             chapter.copyWith(
               name: name,
               date: date,
@@ -177,10 +199,10 @@ class SubjectDetailScreen extends ConsumerWidget {
       builder: (_) => AddChapterSheet(
         onSave: (name, date, progress) {
           repo.addChapter(
-            subjectId,
+            widget.subjectId,
             Chapter(
               id: '',
-              subjectId: subjectId,
+              subjectId: widget.subjectId,
               name: name,
               date: date,
               progress: progress,
@@ -312,6 +334,8 @@ class _ChapterTile extends StatelessWidget {
   /// 1-based position in the subject’s chapter list (creation order).
   final int number;
   final Chapter chapter;
+  /// When > 0, chapter-level target date is not used — subtitle reflects topics.
+  final int topicCount;
   final int completion;
   final VoidCallback onTap;
   final VoidCallback onDelete;
@@ -320,6 +344,7 @@ class _ChapterTile extends StatelessWidget {
   const _ChapterTile({
     required this.number,
     required this.chapter,
+    required this.topicCount,
     required this.completion,
     required this.onTap,
     required this.onDelete,
@@ -368,9 +393,11 @@ class _ChapterTile extends StatelessWidget {
             style: theme.textTheme.bodyLarge
                 ?.copyWith(fontWeight: FontWeight.w600)),
         subtitle: Text(
-            chapter.date != null
-                ? DateFormat.yMMMd().format(chapter.date!)
-                : 'No target date',
+            topicCount > 0
+                ? 'Progress from $topicCount topic${topicCount == 1 ? '' : 's'}'
+                : chapter.date != null
+                    ? DateFormat.yMMMd().format(chapter.date!)
+                    : 'No target date',
             style: theme.textTheme.labelSmall
                 ?.copyWith(color: colorScheme.onSurfaceVariant)),
         trailing: Row(

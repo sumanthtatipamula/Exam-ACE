@@ -59,6 +59,16 @@
 				<string>com.googleusercontent.apps.733539721297-9u8ein7cupc6kfihrs59br3386g8pva5</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.examace.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>examace</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

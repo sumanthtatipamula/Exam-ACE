@@ -34,6 +34,9 @@ class _AddSubjectSheetState extends State<AddSubjectSheet> {
 
   bool _uploading = false;
 
+  String? _nameError;
+  String? _uploadError;
+
   @override
   void initState() {
     super.initState();
@@ -91,6 +94,7 @@ class _AddSubjectSheetState extends State<AddSubjectSheet> {
       setState(() {
         _pickedImage = file;
         _clearedExistingImage = false;
+        _uploadError = null;
       });
     }
   }
@@ -110,7 +114,14 @@ class _AddSubjectSheetState extends State<AddSubjectSheet> {
 
   Future<void> _submit() async {
     final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty) {
+      setState(() => _nameError = 'Required');
+      return;
+    }
+    setState(() {
+      _nameError = null;
+      _uploadError = null;
+    });
 
     String? imageUrl;
 
@@ -121,14 +132,11 @@ class _AddSubjectSheetState extends State<AddSubjectSheet> {
             await ImageUploadService.uploadSubjectImage(name, _pickedImage!);
       } on Exception catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Image upload failed: $e'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          setState(() {
+            _uploading = false;
+            _uploadError = 'Image upload failed: $e';
+          });
         }
-        setState(() => _uploading = false);
         return;
       }
     } else if (widget.isEditing) {
@@ -169,9 +177,11 @@ class _AddSubjectSheetState extends State<AddSubjectSheet> {
             controller: _nameController,
             autofocus: !widget.isEditing,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Subject Name *',
+              errorText: _nameError,
             ),
+            onChanged: (_) => setState(() => _nameError = null),
             onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 12),
@@ -227,6 +237,16 @@ class _AddSubjectSheetState extends State<AddSubjectSheet> {
             ),
           ),
           const SizedBox(height: 8),
+          if (_uploadError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                _uploadError!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.error,
+                ),
+              ),
+            ),
           Text(
             'Tap the image to change cover',
             style: theme.textTheme.labelSmall?.copyWith(

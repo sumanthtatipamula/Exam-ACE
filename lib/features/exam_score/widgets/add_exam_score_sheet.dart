@@ -26,6 +26,10 @@ class _AddExamSheetState extends ConsumerState<AddExamSheet> {
   DateTime _date = DateTime.now();
   ExamAttemptStatus _status = ExamAttemptStatus.taken;
 
+  String? _nameError;
+  String? _marksError;
+  String? _totalError;
+
   @override
   void initState() {
     super.initState();
@@ -65,16 +69,15 @@ class _AddExamSheetState extends ConsumerState<AddExamSheet> {
 
   Future<void> _submit() async {
     final name = _nameController.text.trim();
+    String? nameErr;
+    String? marksErr;
+    String? totalErr;
+
     if (name.isEmpty) {
-      if (!mounted) return;
-      showErrorSnackBar(context, 'Exam name is required.');
-      return;
-    }
-    final lenErr = validateMaxLength(name, InputLimits.examName, 'Exam name');
-    if (lenErr != null) {
-      if (!mounted) return;
-      showErrorSnackBar(context, lenErr);
-      return;
+      nameErr = 'Required';
+    } else {
+      final lenErr = validateMaxLength(name, InputLimits.examName, 'Exam name');
+      if (lenErr != null) nameErr = lenErr;
     }
 
     int? marks;
@@ -84,32 +87,42 @@ class _AddExamSheetState extends ConsumerState<AddExamSheet> {
       marks = null;
       total = null;
     } else {
-      final m = int.tryParse(_marksController.text.trim());
-      final t = int.tryParse(_totalController.text.trim());
-      if (m == null || t == null) {
-        if (!mounted) return;
-        showErrorSnackBar(
-          context,
-          'Marks obtained and total marks are required when status is Taken.',
-        );
-        return;
+      final mStr = _marksController.text.trim();
+      final tStr = _totalController.text.trim();
+      final m = int.tryParse(mStr);
+      final t = int.tryParse(tStr);
+
+      if (mStr.isEmpty) {
+        marksErr = 'Required';
+      } else if (m == null) {
+        marksErr = 'Enter a valid number';
       }
-      if (t <= 0) {
-        if (!mounted) return;
-        showErrorSnackBar(context, 'Total marks must be greater than zero.');
-        return;
+
+      if (tStr.isEmpty) {
+        totalErr = 'Required';
+      } else if (t == null) {
+        totalErr = 'Enter a valid number';
       }
-      if (m < 0 || m > t) {
-        if (!mounted) return;
-        showErrorSnackBar(
-          context,
-          'Marks obtained must be between 0 and total marks.',
-        );
-        return;
+
+      if (marksErr == null && totalErr == null && m != null && t != null) {
+        if (t <= 0) {
+          totalErr = 'Must be greater than 0';
+        } else if (m < 0 || m > t) {
+          marksErr = 'Must be between 0 and $t';
+        } else {
+          marks = m;
+          total = t;
+        }
       }
-      marks = m;
-      total = t;
     }
+
+    setState(() {
+      _nameError = nameErr;
+      _marksError = marksErr;
+      _totalError = totalErr;
+    });
+
+    if (nameErr != null || marksErr != null || totalErr != null) return;
 
     final repo = ref.read(examRepositoryProvider);
     final row = Exam(
@@ -176,11 +189,13 @@ class _AddExamSheetState extends ConsumerState<AddExamSheet> {
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
               maxLength: InputLimits.examName,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Exam name *',
                 hintText: 'e.g. SSC CGL Tier-I · May shift',
                 counterText: '',
+                errorText: _nameError,
               ),
+              onChanged: (_) => setState(() => _nameError = null),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<ExamAttemptStatus>(
@@ -200,6 +215,8 @@ class _AddExamSheetState extends ConsumerState<AddExamSheet> {
                 if (v == null) return;
                 setState(() {
                   _status = v;
+                  _marksError = null;
+                  _totalError = null;
                   if (v == ExamAttemptStatus.yetToTake) {
                     _marksController.clear();
                     _totalController.clear();
@@ -229,9 +246,11 @@ class _AddExamSheetState extends ConsumerState<AddExamSheet> {
                     child: TextField(
                       controller: _marksController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Marks obtained *',
+                        errorText: _marksError,
                       ),
+                      onChanged: (_) => setState(() => _marksError = null),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -239,9 +258,11 @@ class _AddExamSheetState extends ConsumerState<AddExamSheet> {
                     child: TextField(
                       controller: _totalController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Total marks *',
+                        errorText: _totalError,
                       ),
+                      onChanged: (_) => setState(() => _totalError = null),
                     ),
                   ),
                 ],

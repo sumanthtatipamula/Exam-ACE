@@ -14,6 +14,8 @@ import 'package:exam_ace/core/constants/about_sections.dart';
 import 'package:exam_ace/core/settings/metric_formula_mode.dart';
 import 'package:exam_ace/core/settings/metric_formula_provider.dart';
 import 'package:exam_ace/core/settings/syllabus_sort_mode.dart';
+import 'package:exam_ace/core/settings/home_streak_badge_provider.dart';
+import 'package:exam_ace/core/settings/home_week_stats_provider.dart';
 import 'package:exam_ace/core/settings/syllabus_sort_provider.dart';
 import 'package:exam_ace/core/constants/legal_urls.dart';
 import 'package:exam_ace/features/profile/widgets/change_password_sheet.dart';
@@ -261,10 +263,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final displayName = user?.displayName ?? 'User';
     final email = user?.email ?? '';
     final photoUrl = user?.photoURL;
-    final isEmailUser = authService.isEmailPasswordUser;
+    final canChangePassword = authService.canChangePassword;
+
+    final topPad = MediaQuery.paddingOf(context).top + 24;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      padding: EdgeInsets.fromLTRB(20, topPad, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -297,7 +301,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              if (!isEmailUser)
+              if (!canChangePassword)
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -318,8 +322,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(height: 28),
           _ProfileSectionHeader(
             title: 'Account',
-            subtitle:
-                'Your details, password, and notification settings.',
+            subtitle: canChangePassword
+                ? 'Your details, password, and notification settings.'
+                : 'Your details and notification settings.',
           ),
           _InfoCard(
             children: [
@@ -335,7 +340,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          if (isEmailUser)
+          if (canChangePassword)
             _ProfileTile(
               icon: Icons.lock_reset_rounded,
               title: 'Change Password',
@@ -370,12 +375,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             onTap: () => showSyllabusSortSheet(context, ref),
           ),
           const _MetricFormulaTile(),
+          const _StreakBadgeToggleTile(),
+          const _WeekStatsToggleTile(),
           const SizedBox(height: 20),
+          _ProfileSectionHeader(
+            title: 'Data & account',
+            subtitle:
+                'Privacy and data requests open in your browser. Destructive actions cannot be reversed.',
+          ),
           _ProfileAboutNavCard(
             onTap: () => context.push('/about'),
           ),
+          const SizedBox(height: 8),
           if (kPrivacyPolicyUrl.isNotEmpty) ...[
-            const SizedBox(height: 8),
             _ProfileTile(
               icon: Icons.privacy_tip_outlined,
               title: 'Privacy policy',
@@ -394,12 +406,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               onTap: () => _openExternalUrl(kAccountDeletionRequestUrl),
             ),
           ],
-          const SizedBox(height: 20),
-          _ProfileSectionHeader(
-            title: 'Data & account',
-            subtitle:
-                'The actions below are permanent and cannot be reversed.',
-          ),
+          const SizedBox(height: 12),
           _DangerActionTile(
             icon: Icons.delete_sweep_outlined,
             title: 'Clear all data',
@@ -806,9 +813,9 @@ class _DangerActionTile extends StatelessWidget {
 }
 
 IconData _metricFormulaIcon(MetricFormulaMode m) => switch (m) {
-      MetricFormulaMode.math => Icons.equalizer,
-      MetricFormulaMode.physics => Icons.bolt_rounded,
-      MetricFormulaMode.chemistry => Icons.vertical_align_bottom,
+      MetricFormulaMode.balanced => Icons.balance_rounded,
+      MetricFormulaMode.momentum => Icons.trending_up_rounded,
+      MetricFormulaMode.consistent => Icons.show_chart_rounded,
     };
 
 Widget _metricFormulaChip({
@@ -961,7 +968,7 @@ class _MetricFormulaTile extends ConsumerWidget {
                   child: _metricFormulaChip(
                     context: context,
                     ref: ref,
-                    option: MetricFormulaMode.math,
+                    option: MetricFormulaMode.balanced,
                     selected: mode,
                   ),
                 ),
@@ -970,7 +977,7 @@ class _MetricFormulaTile extends ConsumerWidget {
                   child: _metricFormulaChip(
                     context: context,
                     ref: ref,
-                    option: MetricFormulaMode.physics,
+                    option: MetricFormulaMode.momentum,
                     selected: mode,
                   ),
                 ),
@@ -979,7 +986,7 @@ class _MetricFormulaTile extends ConsumerWidget {
                   child: _metricFormulaChip(
                     context: context,
                     ref: ref,
-                    option: MetricFormulaMode.chemistry,
+                    option: MetricFormulaMode.consistent,
                     selected: mode,
                   ),
                 ),
@@ -987,6 +994,86 @@ class _MetricFormulaTile extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _StreakBadgeToggleTile extends ConsumerWidget {
+  const _StreakBadgeToggleTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final showStreak = ref.watch(homeStreakBadgeProvider);
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+      clipBehavior: Clip.antiAlias,
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        secondary: Icon(
+          Icons.local_fire_department_outlined,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        title: Text(
+          'Streak badge',
+          style: theme.textTheme.bodyLarge,
+        ),
+        subtitle: Text(
+          'Show your daily streak next to the week title on Home.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            height: 1.35,
+          ),
+        ),
+        value: showStreak,
+        onChanged: (v) =>
+            ref.read(homeStreakBadgeProvider.notifier).setVisible(v),
+      ),
+    );
+  }
+}
+
+class _WeekStatsToggleTile extends ConsumerWidget {
+  const _WeekStatsToggleTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final showWeekStats = ref.watch(homeWeekStatsProvider);
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+      clipBehavior: Clip.antiAlias,
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        secondary: Icon(
+          Icons.show_chart_rounded,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        title: Text(
+          'Week stats row',
+          style: theme.textTheme.bodyLarge,
+        ),
+        subtitle: Text(
+          'Show streak, calendar, and week stats chip on Home.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            height: 1.35,
+          ),
+        ),
+        value: showWeekStats,
+        onChanged: (v) =>
+            ref.read(homeWeekStatsProvider.notifier).setVisible(v),
       ),
     );
   }

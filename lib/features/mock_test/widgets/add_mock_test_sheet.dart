@@ -40,6 +40,13 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
 
   int _syncLinkAttempts = 0;
 
+  String? _titleError;
+  String? _marksError;
+  String? _totalError;
+  String? _subjectLinkError;
+  String? _chapterLinkError;
+  String? _topicLinkError;
+
   @override
   void initState() {
     super.initState();
@@ -212,28 +219,87 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
 
   Future<void> _submit() async {
     final titleTrim = _titleController.text.trim();
+    String? titleErr;
     if (titleTrim.isNotEmpty) {
       final lenErr =
           validateMaxLength(titleTrim, InputLimits.mockTestTitle, 'Test name');
-      if (lenErr != null) {
-        if (!mounted) return;
-        showErrorSnackBar(context, lenErr);
-        return;
+      if (lenErr != null) titleErr = lenErr;
+    }
+
+    String? marksErr;
+    String? totalErr;
+    final mStr = _marksController.text.trim();
+    final tStr = _totalController.text.trim();
+    final m = int.tryParse(mStr);
+    final t = int.tryParse(tStr);
+
+    if (mStr.isEmpty) {
+      marksErr = 'Required';
+    } else if (m == null) {
+      marksErr = 'Enter a valid number';
+    }
+
+    if (tStr.isEmpty) {
+      totalErr = 'Required';
+    } else if (t == null) {
+      totalErr = 'Enter a valid number';
+    }
+
+    if (marksErr == null && totalErr == null && m != null && t != null) {
+      if (t <= 0) {
+        totalErr = 'Must be greater than 0';
+      } else if (m < 0 || m > t) {
+        marksErr = 'Cannot exceed total marks';
       }
     }
 
-    final marks = int.tryParse(_marksController.text.trim()) ?? 0;
-    final total = int.tryParse(_totalController.text.trim()) ?? 0;
-    if (total <= 0) return;
+    String? subLinkErr;
+    String? chLinkErr;
+    String? topLinkErr;
+    switch (_linkType) {
+      case LinkType.none:
+        break;
+      case LinkType.subject:
+        if (_selectedSubject == null) subLinkErr = 'Required';
+        break;
+      case LinkType.chapter:
+        if (_selectedSubject == null) {
+          subLinkErr = 'Required';
+        } else if (_selectedChapter == null) {
+          chLinkErr = 'Required';
+        }
+        break;
+      case LinkType.topic:
+        if (_selectedSubject == null) {
+          subLinkErr = 'Required';
+        } else if (_selectedChapter == null) {
+          chLinkErr = 'Required';
+        } else if (_selectedTopic == null) {
+          topLinkErr = 'Required';
+        }
+        break;
+    }
 
-    if (marks > total) {
-      if (!mounted) return;
-      showErrorSnackBar(
-        context,
-        'Marks obtained cannot be greater than total marks.',
-      );
+    setState(() {
+      _titleError = titleErr;
+      _marksError = marksErr;
+      _totalError = totalErr;
+      _subjectLinkError = subLinkErr;
+      _chapterLinkError = chLinkErr;
+      _topicLinkError = topLinkErr;
+    });
+
+    if (titleErr != null ||
+        marksErr != null ||
+        totalErr != null ||
+        subLinkErr != null ||
+        chLinkErr != null ||
+        topLinkErr != null) {
       return;
     }
+
+    final marks = m!;
+    final total = t!;
 
     String? linkedName;
     String? linkedSubjectId;
@@ -350,10 +416,12 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
               controller: _titleController,
               textCapitalization: TextCapitalization.words,
               maxLength: InputLimits.mockTestTitle,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Test Name (optional)',
                 counterText: '',
+                errorText: _titleError,
               ),
+              onChanged: (_) => setState(() => _titleError = null),
             ),
             const SizedBox(height: 12),
             Row(
@@ -362,9 +430,11 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
                   child: TextField(
                     controller: _marksController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Marks Obtained *',
+                      errorText: _marksError,
                     ),
+                    onChanged: (_) => setState(() => _marksError = null),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -372,9 +442,11 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
                   child: TextField(
                     controller: _totalController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Total Marks *',
+                      errorText: _totalError,
                     ),
+                    onChanged: (_) => setState(() => _totalError = null),
                   ),
                 ),
               ],
@@ -406,6 +478,9 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
                   _selectedSubject = null;
                   _selectedChapter = null;
                   _selectedTopic = null;
+                  _subjectLinkError = null;
+                  _chapterLinkError = null;
+                  _topicLinkError = null;
                 });
               },
               style: SegmentedButton.styleFrom(
@@ -415,9 +490,10 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
             if (_linkType != LinkType.none) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<Subject>(
-                decoration: const InputDecoration(
-                  labelText: 'Subject',
+                decoration: InputDecoration(
+                  labelText: 'Subject *',
                   isDense: true,
+                  errorText: _subjectLinkError,
                 ),
                 value: _resolveSubject(subjects),
                 items: subjects
@@ -429,6 +505,9 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
                     _selectedSubject = v;
                     _selectedChapter = null;
                     _selectedTopic = null;
+                    _subjectLinkError = null;
+                    _chapterLinkError = null;
+                    _topicLinkError = null;
                   });
                 },
               ),
@@ -437,9 +516,10 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
                 _linkType == LinkType.topic) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<Chapter>(
-                decoration: const InputDecoration(
-                  labelText: 'Chapter',
+                decoration: InputDecoration(
+                  labelText: 'Chapter *',
                   isDense: true,
+                  errorText: _chapterLinkError,
                 ),
                 value: _resolveChapter(chapters),
                 items: chapters
@@ -458,6 +538,8 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
                         setState(() {
                           _selectedChapter = v;
                           _selectedTopic = null;
+                          _chapterLinkError = null;
+                          _topicLinkError = null;
                         });
                       },
               ),
@@ -465,9 +547,10 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
             if (_linkType == LinkType.topic) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<Topic>(
-                decoration: const InputDecoration(
-                  labelText: 'Topic',
+                decoration: InputDecoration(
+                  labelText: 'Topic *',
                   isDense: true,
+                  errorText: _topicLinkError,
                 ),
                 value: _resolveTopic(topics),
                 items: topics
@@ -482,7 +565,10 @@ class _AddMockTestSheetState extends ConsumerState<AddMockTestSheet> {
                     .toList(),
                 onChanged: _selectedChapter == null
                     ? null
-                    : (v) => setState(() => _selectedTopic = v),
+                    : (v) => setState(() {
+                          _selectedTopic = v;
+                          _topicLinkError = null;
+                        }),
               ),
             ],
             const SizedBox(height: 16),

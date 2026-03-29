@@ -1208,14 +1208,10 @@ PODS:
     - Firebase/Firestore (= 11.15.0)
     - firebase_core
     - Flutter
-  - FBAEMKit (18.0.2):
-    - FBSDKCoreKit_Basics (= 18.0.2)
-  - FBSDKCoreKit (18.0.2):
-    - FBAEMKit (= 18.0.2)
-    - FBSDKCoreKit_Basics (= 18.0.2)
-  - FBSDKCoreKit_Basics (18.0.2)
-  - FBSDKLoginKit (18.0.2):
-    - FBSDKCoreKit (= 18.0.2)
+  - cloud_functions (5.6.2):
+    - Firebase/Functions (= 11.15.0)
+    - firebase_core
+    - Flutter
   - Firebase/Auth (11.15.0):
     - Firebase/CoreOnly
     - FirebaseAuth (~> 11.15.0)
@@ -1224,6 +1220,9 @@ PODS:
   - Firebase/Firestore (11.15.0):
     - Firebase/CoreOnly
     - FirebaseFirestore (~> 11.15.0)
+  - Firebase/Functions (11.15.0):
+    - Firebase/CoreOnly
+    - FirebaseFunctions (~> 11.15.0)
   - Firebase/Storage (11.15.0):
     - Firebase/CoreOnly
     - FirebaseStorage (~> 11.15.0)
@@ -1277,6 +1276,15 @@ PODS:
     - gRPC-Core (~> 1.69.0)
     - leveldb-library (~> 1.22)
     - nanopb (~> 3.30910.0)
+  - FirebaseFunctions (11.15.0):
+    - FirebaseAppCheckInterop (~> 11.0)
+    - FirebaseAuthInterop (~> 11.0)
+    - FirebaseCore (~> 11.15.0)
+    - FirebaseCoreExtension (~> 11.15.0)
+    - FirebaseMessagingInterop (~> 11.0)
+    - FirebaseSharedSwift (~> 11.0)
+    - GTMSessionFetcher/Core (< 5.0, >= 3.4)
+  - FirebaseMessagingInterop (11.15.0)
   - FirebaseSharedSwift (11.15.0)
   - FirebaseStorage (11.15.0):
     - FirebaseAppCheckInterop (~> 11.0)
@@ -1286,12 +1294,7 @@ PODS:
     - GoogleUtilities/Environment (~> 8.1)
     - GTMSessionFetcher/Core (< 5.0, >= 3.4)
   - Flutter (1.0.0)
-  - flutter_facebook_auth (7.1.5):
-    - FBSDKLoginKit (= 18.0.2)
-    - Flutter
   - flutter_local_notifications (0.0.1):
-    - Flutter
-  - flutter_secure_storage (6.0.0):
     - Flutter
   - google_sign_in_ios (0.0.1):
     - AppAuth (>= 1.7.4)
@@ -1441,19 +1444,21 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - url_launcher_ios (0.0.1):
+    - Flutter
 
 DEPENDENCIES:
   - cloud_firestore (from `.symlinks/plugins/cloud_firestore/ios`)
+  - cloud_functions (from `.symlinks/plugins/cloud_functions/ios`)
   - firebase_auth (from `.symlinks/plugins/firebase_auth/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_storage (from `.symlinks/plugins/firebase_storage/ios`)
   - Flutter (from `Flutter`)
-  - flutter_facebook_auth (from `.symlinks/plugins/flutter_facebook_auth/ios`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
-  - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
   - google_sign_in_ios (from `.symlinks/plugins/google_sign_in_ios/darwin`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 SPEC REPOS:
   trunk:
@@ -1461,10 +1466,6 @@ SPEC REPOS:
     - AppAuth
     - AppCheckCore
     - BoringSSL-GRPC
-    - FBAEMKit
-    - FBSDKCoreKit
-    - FBSDKCoreKit_Basics
-    - FBSDKLoginKit
     - Firebase
     - FirebaseAppCheckInterop
     - FirebaseAuth
@@ -1474,6 +1475,8 @@ SPEC REPOS:
     - FirebaseCoreInternal
     - FirebaseFirestore
     - FirebaseFirestoreInternal
+    - FirebaseFunctions
+    - FirebaseMessagingInterop
     - FirebaseSharedSwift
     - FirebaseStorage
     - GoogleSignIn
@@ -1490,6 +1493,8 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   cloud_firestore:
     :path: ".symlinks/plugins/cloud_firestore/ios"
+  cloud_functions:
+    :path: ".symlinks/plugins/cloud_functions/ios"
   firebase_auth:
     :path: ".symlinks/plugins/firebase_auth/ios"
   firebase_core:
@@ -1498,18 +1503,16 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_storage/ios"
   Flutter:
     :path: Flutter
-  flutter_facebook_auth:
-    :path: ".symlinks/plugins/flutter_facebook_auth/ios"
   flutter_local_notifications:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
-  flutter_secure_storage:
-    :path: ".symlinks/plugins/flutter_secure_storage/ios"
   google_sign_in_ios:
     :path: ".symlinks/plugins/google_sign_in_ios/darwin"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  url_launcher_ios:
+    :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
   abseil: a05cc83bf02079535e17169a73c5be5ba47f714b
@@ -1517,10 +1520,7 @@ SPEC CHECKSUMS:
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
   BoringSSL-GRPC: dded2a44897e45f28f08ae87a55ee4bcd19bc508
   cloud_firestore: fdcc87898326e396d6ef6df543acf9b5c2034b95
-  FBAEMKit: 56a4f5a9607957b547b6458b17a98c5bb2736367
-  FBSDKCoreKit: 54f1240567e16862ab71c53c33dc347db5c524c5
-  FBSDKCoreKit_Basics: eb530cd6a79030dbb11df460aafb2767bcad9028
-  FBSDKLoginKit: 6a70798793e499335a98fab1a758d7da34af196e
+  cloud_functions: 8565a870fbdc2b5046cba8183e972484128b6d8d
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
   firebase_auth: 50af8366c87bb88c80ebeae62eb60189c7246b9b
   firebase_core: 995454a784ff288be5689b796deb9e9fa3601818
@@ -1533,12 +1533,12 @@ SPEC CHECKSUMS:
   FirebaseCoreInternal: 9afa45b1159304c963da48addb78275ef701c6b4
   FirebaseFirestore: 1e5fafdac2b2ef1ffc24034460b7b4821a15be96
   FirebaseFirestoreInternal: df9ab608a59a4e8eefd0796ed7652f3c1a88473a
+  FirebaseFunctions: 86062a3ba8c7420e6b6fe22c8a1e1150332286de
+  FirebaseMessagingInterop: 63e504b147a7206cfe64cbe2f40c2ddd009945bd
   FirebaseSharedSwift: e17c654ef1f1a616b0b33054e663ad1035c8fd40
   FirebaseStorage: 50fc9ee147392943e492467db6b52759b0447037
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_facebook_auth: fa3b69b1df0831d2178fe87a05ee2d7d0156db70
   flutter_local_notifications: 395056b3175ba4f08480a7c5de30cd36d69827e4
-  flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
   google_sign_in_ios: b48bb9af78576358a168361173155596c845f0b9
   GoogleSignIn: ce8c89bb9b37fb624b92e7514cc67335d1e277e4
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
@@ -1552,6 +1552,7 @@ SPEC CHECKSUMS:
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
 
 PODFILE CHECKSUM: 3c63482e143d1b91d2d2560aee9fb04ecc74ac7e
 

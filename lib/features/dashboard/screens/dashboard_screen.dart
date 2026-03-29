@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:exam_ace/core/constants/app_strings.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:exam_ace/features/home/providers/tasks_provider.dart';
 import 'package:exam_ace/features/home/screens/home_screen.dart';
+import 'package:exam_ace/features/home/widgets/daily_tasks.dart';
+import 'package:exam_ace/features/subjects/models/subject.dart';
+import 'package:exam_ace/features/subjects/providers/subjects_provider.dart';
 import 'package:exam_ace/features/subjects/screens/subjects_screen.dart';
+import 'package:exam_ace/features/subjects/widgets/add_subject_sheet.dart';
 import 'package:exam_ace/features/exam_score/screens/exam_score_screen.dart';
+import 'package:exam_ace/features/exam_score/widgets/add_exam_score_sheet.dart';
 import 'package:exam_ace/features/mock_test/screens/mock_test_screen.dart';
+import 'package:exam_ace/features/mock_test/widgets/add_mock_test_sheet.dart';
 import 'package:exam_ace/features/profile/screens/profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -24,48 +31,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ProfileScreen(),
   ];
 
-  static const _titles = [
-    'Home',
-    'Subjects',
-    'Mock Tests',
-    'Exams',
-    'Profile',
-  ];
+  PreferredSizeWidget? _appBarForIndex(int index) {
+    return switch (index) {
+      2 => AppBar(title: const Text('Mock Tests')),
+      3 => AppBar(title: const Text('Exams')),
+      _ => null,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(
-        title: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: Text.rich(
-            key: ValueKey<int>(_selectedIndex),
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: '${AppStrings.appTitle} · ',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                TextSpan(
-                  text: _titles[_selectedIndex],
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ),
+      appBar: _appBarForIndex(_selectedIndex),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 260),
         switchInCurve: Curves.easeOutCubic,
@@ -75,6 +52,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: _screens[_selectedIndex],
         ),
       ),
+      floatingActionButton: switch (_selectedIndex) {
+        0 => Consumer(
+            builder: (context, ref, _) {
+              return FloatingActionButton(
+                onPressed: () {
+                  final date = ref.read(homeSelectedDateProvider);
+                  final repo = ref.read(tasksRepositoryProvider);
+                  showAddTaskSheet(context, repo, date);
+                },
+                tooltip: 'New task',
+                child: const Icon(Icons.playlist_add_rounded),
+              );
+            },
+          ),
+        1 => Consumer(
+            builder: (context, ref, _) {
+              return FloatingActionButton(
+                onPressed: () {
+                  final repo = ref.read(subjectsRepositoryProvider);
+                  showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => AddSubjectSheet(
+                      onSave: (name, imageUrl, date) {
+                        repo.addSubject(
+                          Subject(
+                            id: '',
+                            name: name,
+                            imageUrl: imageUrl,
+                            date: date,
+                            createdAt: DateTime.now(),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+                tooltip: 'Add subject',
+                child: const Icon(Icons.add_rounded),
+              );
+            },
+          ),
+        2 => FloatingActionButton(
+            onPressed: () {
+              showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => const AddMockTestSheet(),
+              );
+            },
+            tooltip: 'Add mock test',
+            child: const Icon(Icons.add_rounded),
+          ),
+        3 => FloatingActionButton(
+            onPressed: () {
+              showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => const AddExamSheet(),
+              );
+            },
+            tooltip: 'Add exam',
+            child: const Icon(Icons.add_rounded),
+          ),
+        _ => null,
+      },
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
@@ -92,13 +135,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             label: 'Subjects',
           ),
           NavigationDestination(
-            icon: Icon(Icons.quiz_outlined),
-            selectedIcon: Icon(Icons.quiz_rounded),
+            icon: Icon(Icons.note_alt_outlined),
+            selectedIcon: Icon(Icons.note_alt_rounded),
             label: 'Mock Tests',
           ),
           NavigationDestination(
-            icon: Icon(Icons.fact_check_outlined),
-            selectedIcon: Icon(Icons.fact_check_rounded),
+            icon: Icon(Icons.quiz_outlined),
+            selectedIcon: Icon(Icons.quiz_rounded),
             label: 'Exams',
           ),
           NavigationDestination(

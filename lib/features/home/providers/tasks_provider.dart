@@ -18,6 +18,12 @@ final tasksRepositoryProvider = Provider<TasksRepository>((ref) {
   return TasksRepository();
 });
 
+/// Home FAB / add-task uses this date (updated by [HomeScreen] when the user picks a day).
+final homeSelectedDateProvider = StateProvider<DateTime>((ref) {
+  final n = DateTime.now();
+  return DateUtils.dateOnly(DateTime(n.year, n.month, n.day));
+});
+
 class TasksRepository {
   final _firestore = FirebaseFirestore.instance;
 
@@ -54,6 +60,18 @@ class TasksRepository {
   }) async {
     final todayKey = dateKey(DateTime.now());
     if (scheduledDateKey != todayKey) return;
+    await mergeProgressIntoTodaySnapshot(
+      entityKey: entityKey,
+      progress: progress,
+    );
+  }
+
+  /// Merges progress into **today’s** snapshot (e.g. carried spillover: scheduled day is in the past).
+  Future<void> mergeProgressIntoTodaySnapshot({
+    required String entityKey,
+    required int progress,
+  }) async {
+    final todayKey = dateKey(DateTime.now());
     await _daySnapshotDoc(todayKey).set(
       {
         'values': {entityKey: progress},
@@ -69,6 +87,27 @@ class TasksRepository {
         return raw.map((e) => e.toString()).toList();
       }
       return <String>[];
+    });
+  }
+
+  /// How many distinct calendar days each entity appears in [carryToToday] (spill-over count).
+  Stream<Map<String, int>> watchCarrySpillDayCounts() {
+    return _firestore
+        .collection('users')
+        .doc(_uid)
+        .collection('carryToToday')
+        .snapshots()
+        .map((snap) {
+      final counts = <String, int>{};
+      for (final doc in snap.docs) {
+        final raw = doc.data()['ids'];
+        if (raw is! List) continue;
+        for (final e in raw) {
+          final id = e.toString();
+          counts[id] = (counts[id] ?? 0) + 1;
+        }
+      }
+      return counts;
     });
   }
 
@@ -188,6 +227,16 @@ final carryIdsForTodayProvider = StreamProvider<List<String>>((ref) {
     ref,
     <String>[],
     () => ref.watch(tasksRepositoryProvider).watchCarryIdsForDateKey(k),
+  );
+});
+
+/// Per entity: number of distinct days this task was added to “today” via spill-over.
+final carrySpillDayCountsProvider =
+    StreamProvider<Map<String, int>>((ref) {
+  return streamWhenSignedIn(
+    ref,
+    <String, int>{},
+    () => ref.watch(tasksRepositoryProvider).watchCarrySpillDayCounts(),
   );
 });
 
@@ -620,11 +669,26 @@ final spilloverTasksProvider = Provider<List<HomeTask>>((ref) {
 
 /// Tasks for calendar **dots** (and month grid): past scheduled days must not show
 /// “all done” from spillover completion today when there is no snapshot for that day.
+/// For **today**, includes [carriedTasksForTodayProvider] with today’s snapshot overlay.
 final calendarDayTasksProvider =
     Provider.family<List<HomeTask>, String>((ref, targetDateKey) {
-  final tasks = ref.watch(homeTasksForDateProvider(targetDateKey));
   final todayKey = dateKey(DateTime.now());
-  if (targetDateKey.compareTo(todayKey) >= 0) return tasks;
+
+  if (targetDateKey == todayKey) {
+    final native = ref.watch(homeTasksForDateProvider(todayKey));
+    final carried = ref.watch(carriedTasksForTodayProvider);
+    final snap =
+        ref.watch(daySnapshotForDateProvider(todayKey)).valueOrNull ?? {};
+    final carriedWithSnap = carried.map((t) {
+      final p = snap[homeTaskEntityKey(t)];
+      if (p == null) return t;
+      return t.copyWith(progress: p);
+    }).toList();
+    return [...native, ...carriedWithSnap];
+  }
+
+  final tasks = ref.watch(homeTasksForDateProvider(targetDateKey));
+  if (targetDateKey.compareTo(todayKey) > 0) return tasks;
 
   final snap =
       ref.watch(daySnapshotForDateProvider(targetDateKey)).valueOrNull ?? {};
@@ -642,9 +706,7 @@ final calendarDayTasksProvider =
 });
 
 /// Native today + carried (for notifications / combined counts).
+/// Same list as [calendarDayTasksProvider] for today so counts stay aligned with calendar/home.
 final todayCombinedTasksProvider = Provider<List<HomeTask>>((ref) {
-  final todayKey = dateKey(DateTime.now());
-  final native = ref.watch(homeTasksForDateProvider(todayKey));
-  final carried = ref.watch(carriedTasksForTodayProvider);
-  return [...native, ...carried];
+  return ref.watch(calendarDayTasksProvider(dateKey(DateTime.now())));
 });

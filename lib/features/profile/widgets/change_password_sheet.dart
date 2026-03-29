@@ -51,6 +51,45 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final canChange = ref.watch(authServiceProvider).canChangePassword;
+
+    if (!canChange) {
+      return Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Not available',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Accounts that sign in with Google or other social providers '
+              'don’t use an in-app password. Manage security in your Google '
+              'or provider account.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: EdgeInsets.only(

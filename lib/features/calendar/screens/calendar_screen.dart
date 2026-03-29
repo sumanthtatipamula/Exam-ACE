@@ -5,8 +5,9 @@ import 'package:exam_ace/core/theme/color_preset_provider.dart';
 import 'package:exam_ace/features/calendar/models/daily_record.dart';
 import 'package:exam_ace/features/calendar/widgets/calendar_grid.dart';
 import 'package:exam_ace/features/home/models/home_task.dart'
-    show HomeTask, HomeTaskSource;
+    show HomeTask, HomeTaskSource, homeTaskEntityKey;
 import 'package:exam_ace/features/home/providers/tasks_provider.dart';
+import 'package:exam_ace/features/home/widgets/carried_spill_badge.dart';
 import 'package:exam_ace/features/home/widgets/home_task_progress_sheet.dart';
 
 class CalendarScreen extends ConsumerStatefulWidget {
@@ -154,8 +155,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             child: _TaskListForDate(
               record: selectedRecord,
               theme: theme,
-              ref: ref,
               readOnly: calendarPastReadOnly,
+              selectedIsToday: selDateOnly == todayOnly,
             ),
           ),
         ],
@@ -199,22 +200,27 @@ class _Legend extends StatelessWidget {
   }
 }
 
-class _TaskListForDate extends StatelessWidget {
+class _TaskListForDate extends ConsumerWidget {
   final DailyRecord? record;
   final ThemeData theme;
-  final WidgetRef ref;
   final bool readOnly;
+  final bool selectedIsToday;
 
   const _TaskListForDate({
     required this.record,
     required this.theme,
-    required this.ref,
     this.readOnly = false,
+    this.selectedIsToday = false,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = theme.colorScheme;
+    final carryIds =
+        ref.watch(carryIdsForTodayProvider).valueOrNull ?? const <String>[];
+    final carrySpillCounts =
+        ref.watch(carrySpillDayCountsProvider).valueOrNull ??
+            const <String, int>{};
 
     if (record == null || record!.tasks.isEmpty) {
       return Center(
@@ -341,15 +347,11 @@ class _TaskListForDate extends StatelessWidget {
       separatorBuilder: (_, _) => const SizedBox(height: 4),
       itemBuilder: (context, index) {
         final task = record!.tasks[index];
-        return Card(
-          elevation: 0,
-          color: colorScheme.surfaceContainerLow,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => showHomeTaskProgressEditor(context, ref, task),
-            child: Padding(
+        final entityKey = homeTaskEntityKey(task);
+        final showCarriedBadge =
+            selectedIsToday && carryIds.contains(entityKey);
+        final carrySpillDays = carrySpillCounts[entityKey] ?? 1;
+        final body = Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
@@ -428,6 +430,10 @@ class _TaskListForDate extends StatelessWidget {
                               ),
                             ),
                           ],
+                          if (showCarriedBadge) ...[
+                            const SizedBox(width: 6),
+                            CarriedSpillBadge(spillDays: carrySpillDays),
+                          ],
                         ],
                       ),
                       if (task.subtitle != null &&
@@ -455,8 +461,20 @@ class _TaskListForDate extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          ),
+          );
+        return Card(
+          elevation: 0,
+          color: colorScheme.surfaceContainerLow,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          clipBehavior: Clip.antiAlias,
+          child: showCarriedBadge
+              ? body
+              : InkWell(
+                  onTap: () =>
+                      showHomeTaskProgressEditor(context, ref, task),
+                  child: body,
+                ),
         );
       },
     );

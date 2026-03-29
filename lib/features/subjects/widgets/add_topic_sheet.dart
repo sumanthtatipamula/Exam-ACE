@@ -20,6 +20,7 @@ class _AddTopicSheetState extends State<AddTopicSheet> {
   final _nameController = TextEditingController();
   DateTime? _date;
   double _progress = 0;
+  String? _nameError;
 
   @override
   void initState() {
@@ -50,7 +51,11 @@ class _AddTopicSheetState extends State<AddTopicSheet> {
 
   void _submit() {
     final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty) {
+      setState(() => _nameError = 'Required');
+      return;
+    }
+    setState(() => _nameError = null);
     widget.onSave(name, _date, _progress.round());
     Navigator.of(context).pop();
   }
@@ -80,9 +85,11 @@ class _AddTopicSheetState extends State<AddTopicSheet> {
               controller: _nameController,
               autofocus: !editing,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Topic Name *',
+                errorText: _nameError,
               ),
+              onChanged: (_) => setState(() => _nameError = null),
               onSubmitted: (_) => _submit(),
             ),
             const SizedBox(height: 12),

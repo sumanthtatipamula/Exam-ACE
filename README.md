@@ -12,6 +12,8 @@ Exam prep tracker for **Flutter** — syllabus, daily tasks, mock tests, and rea
 
 Settings persist locally via **SharedPreferences** (theme, formula, accent).
 
+📖 **For detailed feature documentation, see [FEATURES.md](FEATURES.md)**
+
 ## Requirements
 
 - [Flutter](https://docs.flutter.dev/get-started/install) (stable channel), Dart **^3.10**

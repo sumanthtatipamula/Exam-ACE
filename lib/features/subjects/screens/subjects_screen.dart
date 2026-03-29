@@ -10,6 +10,21 @@ import 'package:exam_ace/features/subjects/widgets/subject_card.dart';
 import 'package:exam_ace/features/subjects/widgets/subject_list_tile.dart';
 import 'package:exam_ace/shared/widgets/confirm_delete_dialog.dart';
 
+/// Keeps subject cards readable on tablets (avoid 2 huge columns edge-to-edge).
+const double _kSubjectsContentMaxWidth = 1280;
+
+int _subjectGridCrossAxisCount(double width) {
+  if (width >= 1100) return 4;
+  if (width >= 720) return 3;
+  return 2;
+}
+
+double _subjectGridChildAspectRatio(double width) {
+  if (width >= 1000) return 0.72;
+  if (width >= 720) return 0.68;
+  return 0.64;
+}
+
 class SubjectsScreen extends ConsumerStatefulWidget {
   const SubjectsScreen({super.key});
 
@@ -21,24 +36,6 @@ class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
   bool _isGrid = true;
 
   SubjectsRepository get _repo => ref.read(subjectsRepositoryProvider);
-
-  void _showAddSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => AddSubjectSheet(
-        onSave: (name, imageUrl, date) {
-          _repo.addSubject(Subject(
-            id: '',
-            name: name,
-            imageUrl: imageUrl,
-            date: date,
-            createdAt: DateTime.now(),
-          ));
-        },
-      ),
-    );
-  }
 
   Future<void> _confirmDeleteSubject(Subject subject) async {
     final confirmed = await showConfirmDeleteDialog(context,
@@ -90,16 +87,20 @@ class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final subjectsAsync = ref.watch(subjectsStreamProvider);
+    final topPad = MediaQuery.paddingOf(context).top + 8;
 
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          padding: EdgeInsets.fromLTRB(20, topPad, 20, 8),
           child: Row(
             children: [
-              Text('My Subjects',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
+              Text(
+                'Subjects',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const Spacer(),
               IconButton(
                 onPressed: () =>
@@ -110,13 +111,6 @@ class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
                 style:
                     IconButton.styleFrom(backgroundColor: Colors.transparent),
                 tooltip: _isGrid ? 'List view' : 'Grid view',
-              ),
-              IconButton(
-                onPressed: _showAddSheet,
-                icon: Icon(Icons.add_rounded, color: colorScheme.primary),
-                style:
-                    IconButton.styleFrom(backgroundColor: Colors.transparent),
-                tooltip: 'Add subject',
               ),
             ],
           ),
@@ -143,8 +137,8 @@ class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
                   ),
                 );
               }
-              if (_isGrid) return _buildGrid(subjects);
-              return _buildList(subjects);
+              if (_isGrid) return _buildGrid(context, subjects);
+              return _buildList(context, subjects);
             },
           ),
         ),
@@ -152,43 +146,64 @@ class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
     );
   }
 
-  Widget _buildGrid(List<Subject> subjects) {
-    return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 14,
-        crossAxisSpacing: 14,
-        // width/height — higher = shorter cells (0.54 was ~full-screen tall cards).
-        childAspectRatio: 0.64,
+  Widget _buildGrid(BuildContext context, List<Subject> subjects) {
+    final width = MediaQuery.sizeOf(context).width;
+    final crossCount = _subjectGridCrossAxisCount(width);
+    final aspect = _subjectGridChildAspectRatio(width);
+    final hPad = width >= 600 ? 24.0 : 16.0;
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _kSubjectsContentMaxWidth),
+        child: GridView.builder(
+          padding:
+              EdgeInsets.symmetric(horizontal: hPad, vertical: 4),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossCount,
+            mainAxisSpacing: 14,
+            crossAxisSpacing: 14,
+            childAspectRatio: aspect,
+          ),
+          itemCount: subjects.length,
+          itemBuilder: (context, index) {
+            final subject = subjects[index];
+            return _SubjectCardWithCompletion(
+              subject: subject,
+              onTap: () => context.push('/subject/${subject.id}'),
+              onDelete: () => _confirmDeleteSubject(subject),
+              onEdit: () => _editSubject(subject),
+            );
+          },
+        ),
       ),
-      itemCount: subjects.length,
-      itemBuilder: (context, index) {
-        final subject = subjects[index];
-        return _SubjectCardWithCompletion(
-          subject: subject,
-          onTap: () => context.push('/subject/${subject.id}'),
-          onDelete: () => _confirmDeleteSubject(subject),
-          onEdit: () => _editSubject(subject),
-        );
-      },
     );
   }
 
-  Widget _buildList(List<Subject> subjects) {
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      itemCount: subjects.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final subject = subjects[index];
-        return _SubjectListTileWithCompletion(
-          subject: subject,
-          onTap: () => context.push('/subject/${subject.id}'),
-          onDelete: () => _confirmDeleteSubject(subject),
-          onEdit: () => _editSubject(subject),
-        );
-      },
+  Widget _buildList(BuildContext context, List<Subject> subjects) {
+    final width = MediaQuery.sizeOf(context).width;
+    final hPad = width >= 600 ? 24.0 : 16.0;
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: ListView.separated(
+          padding:
+              EdgeInsets.symmetric(horizontal: hPad, vertical: 4),
+          itemCount: subjects.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            final subject = subjects[index];
+            return _SubjectListTileWithCompletion(
+              subject: subject,
+              onTap: () => context.push('/subject/${subject.id}'),
+              onDelete: () => _confirmDeleteSubject(subject),
+              onEdit: () => _editSubject(subject),
+            );
+          },
+        ),
+      ),
     );
   }
 }

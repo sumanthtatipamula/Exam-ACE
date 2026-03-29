@@ -4,6 +4,8 @@ import 'package:exam_ace/core/router/go_router_refresh_stream.dart';
 import 'package:exam_ace/features/auth/providers/auth_provider.dart';
 import 'package:exam_ace/features/auth/screens/sign_in_screen.dart';
 import 'package:exam_ace/features/auth/screens/sign_up_screen.dart';
+import 'package:exam_ace/features/auth/screens/reset_password_screen.dart';
+import 'package:exam_ace/features/auth/screens/verify_email_screen.dart';
 import 'package:exam_ace/features/splash/screens/splash_screen.dart';
 import 'package:exam_ace/features/dashboard/screens/dashboard_screen.dart';
 import 'package:exam_ace/features/calendar/screens/calendar_screen.dart';
@@ -22,9 +24,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final isLoggedIn = firebaseAuth.currentUser != null;
-      final isAuthRoute = state.matchedLocation == '/sign-in' ||
-          state.matchedLocation == '/sign-up';
-      final isSplash = state.matchedLocation == '/';
+      final path = state.matchedLocation;
+      final isAuthRoute = path == '/sign-in' || path == '/sign-up';
+      final isSplash = path == '/';
 
       if (isSplash) return null;
       if (!isLoggedIn && !isAuthRoute) return '/sign-in';
@@ -46,6 +48,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/sign-up',
         name: 'signUp',
         builder: (context, state) => const SignUpScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        name: 'resetPassword',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'] ?? '';
+          return ResetPasswordScreen(token: token);
+        },
+      ),
+      GoRoute(
+        path: '/verify-email',
+        name: 'verifyEmail',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'] ?? '';
+          return VerifyEmailScreen(token: token);
+        },
       ),
       GoRoute(
         path: '/main',

@@ -14,5 +14,17 @@ service cloud.firestore {
         && request.resource.size() < 1048576;
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
+    
+    // Password reset tokens - managed by Cloud Functions only
+    // Users cannot read/write these directly for security
+    match /passwordResetTokens/{token} {
+      allow read, write: if false; // Only Cloud Functions can access
+    }
+    
+    // Email verification tokens - managed by Cloud Functions only
+    // Users cannot read/write these directly for security
+    match /emailVerificationTokens/{token} {
+      allow read, write: if false; // Only Cloud Functions can access
+    }
   }
 }

@@ -344,37 +344,38 @@ class _WeekScoreExplainer extends StatelessWidget {
           children: [
             _modeBlock(
               theme,
-              'Simple — normal average',
-              'weekRatio = sum(p_i) / (n * 100)\n'
-              'p_i = each task’s progress 0–100; n = number of tasks this week. '
-              'The app shows weekRatio as a percent.',
-              'We add every task’s % and divide by how many tasks you had this week. '
-                  'Each task counts the same.\n\n'
-                  'Example: three tasks at 100%, 100%, and 0% → about 67% for the week '
-                  '(200 ÷ 300).',
+              'Balanced — harmonic mean',
+              'weekRatio = n / sum(1/p_i)\n'
+              'p_i = each task’s progress (0.01–1.0); n = number of tasks. '
+              'Penalizes extremes and rewards even distribution.',
+              'Uses harmonic mean instead of arithmetic mean. Having one task at 10% '
+                  'and another at 90% scores lower than both at 50%.\n\n'
+                  'Example: tasks at [20%, 80%] → 32% vs [50%, 50%] → 50%. '
+                  'Encourages working evenly across all tasks.',
             ),
             Divider(height: 28, color: cs.outlineVariant.withValues(alpha: 0.4)),
             _modeBlock(
               theme,
-              'Strong — rewards finishing well',
-              'weekRatio = ( (1/n) * sum( (p_i/100)^3 ) )^(1/3)\n'
-              'Cube each fraction (0–1), average the cubes, then take the cube root. '
-              'Same as Simple when every task matches.',
-              'Finishing tasks at a high % helps your week more than having many tasks '
-                  'only partly done.\n\n'
-                  'Example: same three tasks at 100%, 100%, and 0% → the week % comes out '
-                  'higher than 67% (near 87%) because the two full finishes count extra.',
+              'Momentum — recent days matter more',
+              'weekRatio = sum(w_i * A_i) / sum(w_i)\n'
+              'w_i = e^(i/6) where i is day index (0–6); A_i = daily average. '
+              'Exponential weighting favors recent performance.',
+              'Monday gets 1.0× weight, Sunday gets 2.7× weight. Building momentum '
+                  'through the week is rewarded.\n\n'
+                  'Example: improving week [50%, 60%, 70%, 80%, 90%, 95%, 100%] → 84.2%. '
+                  'Finishing strong boosts your score.',
             ),
             Divider(height: 28, color: cs.outlineVariant.withValues(alpha: 0.4)),
             _modeBlock(
               theme,
-              'Strict — your worst day sets the week',
-              'weekRatio = min over days d of A_d\n'
-              'A_d = average progress of tasks on day d (only days with at least one task).',
-              'We look at each day that had at least one task and take the lowest '
-                  'daily average. One bad day can pull the whole week down.\n\n'
-                  'Example: Monday you averaged 100% across tasks, Tuesday you averaged '
-                  '0% on the tasks that day → the week shows 0%, even though Monday was perfect.',
+              'Consistent — rewards steady work',
+              'weekRatio = avg + (1 - σ) × 0.15\n'
+              'avg = mean of daily averages; σ = standard deviation of daily scores. '
+              'Lower variance adds up to 15% bonus.',
+              'Calculates your average, then adds a consistency bonus based on how '
+                  'steady your daily performance is.\n\n'
+                  'Example: steady [70%, 72%, 71%, 70%, 73%] gets bonus vs '
+                  '[50%, 90%, 50%, 90%, 50%]. Rewards regular, predictable progress.',
             ),
           ],
         ),

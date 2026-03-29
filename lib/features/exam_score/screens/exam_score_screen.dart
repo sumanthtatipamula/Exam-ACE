@@ -20,25 +20,7 @@ class ExamsScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Row(
-            children: [
-              Text(
-                'Exams',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: () => _showAdd(context),
-                icon: Icon(Icons.add_rounded, color: colorScheme.primary),
-                style: IconButton.styleFrom(backgroundColor: Colors.transparent),
-                tooltip: 'Add exam',
-              ),
-            ],
-          ),
-        ),
+        const SizedBox(height: 8),
         Expanded(
           child: rowsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
@@ -106,14 +88,6 @@ class ExamsScreen extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-
-  void _showAdd(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const AddExamSheet(),
     );
   }
 

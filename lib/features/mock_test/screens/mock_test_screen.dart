@@ -77,25 +77,7 @@ class _MockTestScreenState extends ConsumerState<MockTestScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Row(
-            children: [
-              Text('Mock Tests',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-              const Spacer(),
-              IconButton(
-                onPressed: () => _showAddSheet(context, ref),
-                icon: Icon(Icons.add_rounded, color: colorScheme.primary),
-                style:
-                    IconButton.styleFrom(backgroundColor: Colors.transparent),
-                tooltip: 'Add mock test',
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: _filterCollapsed
               ? _CompactFilterBar(
                   subjects: subjects,
@@ -217,14 +199,6 @@ class _MockTestScreenState extends ConsumerState<MockTestScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  void _showAddSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const AddMockTestSheet(),
     );
   }
 

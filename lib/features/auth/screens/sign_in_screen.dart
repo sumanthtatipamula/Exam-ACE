@@ -5,6 +5,7 @@ import 'package:exam_ace/core/constants/app_strings.dart';
 import 'package:exam_ace/core/utils/validators.dart';
 import 'package:exam_ace/core/utils/snackbar_helpers.dart';
 import 'package:exam_ace/features/auth/providers/auth_provider.dart';
+import 'package:exam_ace/features/auth/widgets/forgot_password_sheet.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
@@ -46,6 +47,15 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               _emailController.text.trim(),
               _passwordController.text,
             ));
+  }
+
+  void _showForgotPasswordSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const ForgotPasswordSheet(),
+    );
   }
 
   @override
@@ -113,10 +123,29 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             v == null || v.isEmpty ? 'Enter your password' : null,
                         onFieldSubmitted: (_) => _signInWithEmail(),
                       ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => _showForgotPasswordSheet(context),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            'Forgot Password?',
+                            style: TextStyle(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   height: 48,

@@ -1,6 +1,6 @@
 # Privacy Policy — Exam Ace
 
-**Last updated:** March 28, 2026  
+**Last updated:** March 29, 2026  
 
 **Published at:** https://sumanthtatipamula.github.io/Exam-ACE/ (GitHub Pages from `docs/index.html` in this repository.)
 
@@ -91,15 +91,26 @@ The app relies on services that have their own privacy policies:
 
 | Service | Purpose |
 |--------|---------|
-| **Google Firebase** (Authentication, Firestore, Storage, and related Google Cloud infrastructure) | Sign-in, encrypted sync and storage of your app data |
-| **Google Sign-In** | Optional “Sign in with Google” |
+| **Google Firebase** (Authentication, Firestore, Storage, Cloud Functions, and related Google Cloud infrastructure) | Sign-in, encrypted sync and storage of your app data, and secure email delivery |
+| **Google Sign-In** | Optional "Sign in with Google" |
+| **Resend** (email service) | Sending transactional emails (account verification, password reset) via Firebase Cloud Functions |
 
 You should review:
 
 - [Google Privacy Policy](https://policies.google.com/privacy)  
-- [Firebase Privacy and Security](https://firebase.google.com/support/privacy)  
+- [Firebase Privacy and Security](https://firebase.google.com/support/privacy)
+- [Resend Privacy Policy](https://resend.com/legal/privacy-policy)
 
-We do not control how Google processes data when you use their services; that is governed by Google’s terms and your Google account choices.
+We do not control how Google or Resend process data when you use their services; that is governed by their respective terms and your account choices.
+
+### 3.1 Email communications
+
+When you create an account or request a password reset, we may send you transactional emails through **Resend** (via **Firebase Cloud Functions**). These emails include:
+
+- **Account verification emails** when you sign up
+- **Password reset emails** when you request to reset your password
+
+We only send emails necessary for account security and functionality. We do **not** send marketing emails or newsletters. Your email address is shared with Resend only for the purpose of delivering these transactional messages.
 
 ---
 

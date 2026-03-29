@@ -69,6 +69,15 @@ Future<void> showHomeTaskProgressEditor(
                 entityKey: homeTaskEntityKey(task),
                 progress: value,
               );
+              final carrySet =
+                  (ref.read(carryIdsForTodayProvider).valueOrNull ?? [])
+                      .toSet();
+              if (carrySet.contains(homeTaskEntityKey(task))) {
+                await repo.mergeProgressIntoTodaySnapshot(
+                  entityKey: homeTaskEntityKey(task),
+                  progress: value,
+                );
+              }
               if (ctx.mounted) Navigator.of(ctx).pop();
               if (reachedFull && context.mounted) {
                 await Future<void>.delayed(const Duration(milliseconds: 100));

@@ -75,6 +75,11 @@ class ChapterDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(chapter?.name ?? 'Chapter')),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddTopic(context, repo),
+        tooltip: 'Add topic',
+        child: const Icon(Icons.add_rounded),
+      ),
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
@@ -136,21 +141,13 @@ class ChapterDetailScreen extends ConsumerWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Text('Topics',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => _showAddTopic(context, repo),
-                    icon: Icon(Icons.add_rounded,
-                        color: colorScheme.primary),
-                    style: IconButton.styleFrom(
-                        backgroundColor: Colors.transparent),
-                    tooltip: 'Add topic',
-                  ),
-                ],
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Topics',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
               ),
             ),
           ),

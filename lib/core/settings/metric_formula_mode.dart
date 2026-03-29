@@ -2,48 +2,48 @@
 ///
 /// Surf bar **heights** use completed-task counts within the week; only the headline % and WoW use this.
 enum MetricFormulaMode {
-  /// Straight average across tasks.
-  math,
+  /// Harmonic mean — penalizes inconsistency, rewards balance.
+  balanced,
 
-  /// Rewards tasks finished at high % more than many low-% tasks.
-  physics,
+  /// Recent days matter more — builds on your momentum.
+  momentum,
 
-  /// Your lowest day’s average sets the week (one bad day hurts a lot).
-  chemistry,
+  /// Rewards steady daily performance with consistency bonus.
+  consistent,
 }
 
 extension MetricFormulaModeLabels on MetricFormulaMode {
   /// One short word on the chip (fits in one row).
   String get title => switch (this) {
-        MetricFormulaMode.math => 'Simple',
-        MetricFormulaMode.physics => 'Strong',
-        MetricFormulaMode.chemistry => 'Strict',
+        MetricFormulaMode.balanced => 'Balanced',
+        MetricFormulaMode.momentum => 'Momentum',
+        MetricFormulaMode.consistent => 'Consistent',
       };
 
   /// One line under the setting title — plain language only.
   String get subtitle => switch (this) {
-        MetricFormulaMode.math =>
-          'Every task counts the same — like a normal average.',
-        MetricFormulaMode.physics =>
-          'Doing really well on tasks lifts your week more than many half-done ones.',
-        MetricFormulaMode.chemistry =>
-          'One slow day pulls your whole week down — not only your best day.',
+        MetricFormulaMode.balanced =>
+          'Penalizes extremes — rewards working evenly across all tasks.',
+        MetricFormulaMode.momentum =>
+          'Recent days count more — finishing strong boosts your week score.',
+        MetricFormulaMode.consistent =>
+          'Rewards steady daily work — consistency bonus for regular progress.',
       };
 
   /// Extra help on long-press / tooltip.
   String get detailHint => switch (this) {
-        MetricFormulaMode.math =>
-          'We add up all your task % and split evenly — easy to read, nothing hidden.',
-        MetricFormulaMode.physics =>
-          'If you finish topics at high %, that helps your week more than lots of tiny starts.',
-        MetricFormulaMode.chemistry =>
-          'We look at your weakest study day: if that day was low, your week score drops.',
+        MetricFormulaMode.balanced =>
+          'Uses harmonic mean — having one task at 10% and another at 90% scores lower than both at 50%.',
+        MetricFormulaMode.momentum =>
+          'Days closer to today get more weight — building momentum through the week matters.',
+        MetricFormulaMode.consistent =>
+          'Calculates daily variance — lower variance (more consistent) adds a bonus to your score.',
       };
 
   /// Shown under the % on Home — plain words, not the chip label alone.
   String get ribbonShort => switch (this) {
-        MetricFormulaMode.math => 'Normal average',
-        MetricFormulaMode.physics => 'Rewards strong work',
-        MetricFormulaMode.chemistry => 'Worst day counts',
+        MetricFormulaMode.balanced => 'Penalizes extremes',
+        MetricFormulaMode.momentum => 'Recent days matter more',
+        MetricFormulaMode.consistent => 'Rewards consistency',
       };
 }

@@ -5,9 +5,14 @@ import 'package:exam_ace/features/home/models/task.dart';
 import 'package:exam_ace/features/home/models/home_task.dart'
     show HomeTask, HomeTaskSource, homeTaskEntityKey;
 import 'package:exam_ace/features/home/providers/tasks_provider.dart';
+import 'package:exam_ace/features/home/widgets/carried_spill_badge.dart';
 import 'package:exam_ace/features/home/widgets/home_task_progress_sheet.dart';
 
-void _openAddTaskSheet(
+/// Matches [HomeScreen] / week tracker horizontal inset so Mon–Sun and task UI align.
+const double _kHomeTaskHorizontalPadding = 20;
+
+/// Opens the add-task sheet (used from Home FAB and elsewhere).
+void showAddTaskSheet(
   BuildContext context,
   TasksRepository repo,
   DateTime initialDate,
@@ -24,209 +29,67 @@ void _openAddTaskSheet(
   );
 }
 
-class DailyTasks extends ConsumerWidget {
-  /// Tasks **scheduled** for [selectedDate] (native list — not spillover).
-  final List<HomeTask> tasks;
+/// Sliver children for the home task list so the **page** scrolls (no nested list).
+List<Widget> buildHomeDailyTaskSlivers({
+  required BuildContext context,
+  required WidgetRef ref,
+  required DateTime selectedDate,
+  required DateTime today,
+  required List<HomeTask> tasks,
+  List<HomeTask> carriedTasks = const [],
+  List<HomeTask> spilloverTasks = const [],
+  Map<String, int> carrySpillDayCounts = const {},
+  required int todaySegment,
+  required ValueChanged<int> onTodaySegmentChanged,
+  VoidCallback? onGoToToday,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final repo = ref.read(tasksRepositoryProvider);
+  final day = DateTime(
+    selectedDate.year,
+    selectedDate.month,
+    selectedDate.day,
+  );
 
-  /// Shown only when [selectedDate] is today: tasks carried from earlier days (editable).
-  final List<HomeTask> carriedTasks;
+  final isToday = DateUtils.isSameDay(selectedDate, today);
 
-  /// Incomplete past-scheduled tasks not yet added to today (readonly + include).
-  final List<HomeTask> spilloverTasks;
-
-  final DateTime selectedDate;
-  final DateTime today;
-
-  const DailyTasks({
-    super.key,
-    required this.tasks,
-    this.carriedTasks = const [],
-    this.spilloverTasks = const [],
-    required this.selectedDate,
-    required this.today,
-  });
-
-  bool get _isToday => DateUtils.isSameDay(selectedDate, today);
-
-  bool get _readonlyPast {
-    final sd = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
-    final tod = DateTime(today.year, today.month, today.day);
-    return sd.isBefore(tod);
-  }
-
-  String _sectionTitle() {
-    if (_isToday) return "Today's tasks";
-    return DateFormat.yMMMEd().format(selectedDate);
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final repo = ref.read(tasksRepositoryProvider);
-    final day = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-    );
-
-    if (_isToday) {
-      return _TodayTasksSplit(
-        tasks: tasks,
-        carriedTasks: carriedTasks,
-        spilloverTasks: spilloverTasks,
-        day: day,
-      );
-    }
-
-    final readOnly = _readonlyPast;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                _sectionTitle(),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            if (!readOnly)
-              IconButton(
-                onPressed: () => _openAddTaskSheet(context, repo, day),
-                icon: Icon(Icons.add_rounded, color: colorScheme.primary),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                ),
-                tooltip: 'Add task',
-              ),
-          ],
-        ),
-        if (readOnly)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              'Snapshot for this day — progress is frozen.',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        const SizedBox(height: 4),
-        if (tasks.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 32),
-            child: Center(
-              child: Text(
-                'No tasks for this day.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          )
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: tasks.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 4),
-            itemBuilder: (context, index) {
-              final task = tasks[index];
-              return _TaskTile(
-                task: task,
-                readOnly: readOnly,
-                onTap: readOnly
-                    ? null
-                    : () => showHomeTaskProgressEditor(context, ref, task),
-                onDelete: readOnly || !task.isStandalone
-                    ? null
-                    : () => repo.delete(task.id),
-              );
-            },
-          ),
-      ],
-    );
-  }
-
-}
-
-/// Today view: always-visible [SegmentedButton] to switch between native tasks
-/// and spillover (previously spillover was hidden when the list was empty).
-class _TodayTasksSplit extends ConsumerStatefulWidget {
-  final List<HomeTask> tasks;
-  final List<HomeTask> carriedTasks;
-  final List<HomeTask> spilloverTasks;
-  final DateTime day;
-
-  const _TodayTasksSplit({
-    required this.tasks,
-    required this.carriedTasks,
-    required this.spilloverTasks,
-    required this.day,
-  });
-
-  @override
-  ConsumerState<_TodayTasksSplit> createState() => _TodayTasksSplitState();
-}
-
-class _TodayTasksSplitState extends ConsumerState<_TodayTasksSplit> {
-  /// 0 = Today, 1 = Spill over
-  int _segment = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final repo = ref.read(tasksRepositoryProvider);
-    final day = widget.day;
-
+  if (isToday) {
     final todayNativeEmpty =
-        widget.tasks.isEmpty && widget.carriedTasks.isEmpty;
+        tasks.isEmpty && carriedTasks.isEmpty;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: SegmentedButton<int>(
-                segments: const [
-                  ButtonSegment<int>(
-                    value: 0,
-                    label: Text('Today'),
-                    icon: Icon(Icons.wb_sunny_outlined, size: 18),
-                  ),
-                  ButtonSegment<int>(
-                    value: 1,
-                    label: Text('Spill over'),
-                    icon: Icon(Icons.history_rounded, size: 18),
-                  ),
-                ],
-                selected: {_segment},
-                onSelectionChanged: (Set<int> s) => setState(() => _segment = s.first),
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: _kHomeTaskHorizontalPadding),
+          child: SegmentedButton<int>(
+            segments: const [
+              ButtonSegment<int>(
+                value: 0,
+                label: Text('Today'),
+                icon: Icon(Icons.wb_sunny_outlined, size: 18),
               ),
-            ),
-            if (_segment == 0) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: () => _openAddTaskSheet(context, repo, day),
-                icon: Icon(Icons.add_rounded, color: colorScheme.primary),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                ),
-                tooltip: 'Add task',
+              ButtonSegment<int>(
+                value: 1,
+                label: Text('Spill over'),
+                icon: Icon(Icons.history_rounded, size: 18),
               ),
             ],
-          ],
+            selected: {todaySegment},
+            onSelectionChanged: (Set<int> s) =>
+                onTodaySegmentChanged(s.first),
+          ),
         ),
-        const SizedBox(height: 12),
-        if (_segment == 0) ...[
-          if (todayNativeEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 12)),
+      if (todaySegment == 0) ...[
+        if (todayNativeEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: _kHomeTaskHorizontalPadding,
+                vertical: 24,
+              ),
               child: Center(
                 child: Text(
                   'No tasks scheduled for today.',
@@ -235,48 +98,68 @@ class _TodayTasksSplitState extends ConsumerState<_TodayTasksSplit> {
                   ),
                 ),
               ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: widget.tasks.length + widget.carriedTasks.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 4),
-              itemBuilder: (context, index) {
-                if (index < widget.tasks.length) {
-                  final task = widget.tasks[index];
-                  return _TaskTile(
-                    task: task,
-                    onTap: () =>
-                        showHomeTaskProgressEditor(context, ref, task),
-                    onDelete: task.isStandalone
-                        ? () => repo.delete(task.id)
-                        : null,
-                  );
-                }
-                final task = widget.carriedTasks[index - widget.tasks.length];
-                return _TaskTile(
-                  task: task,
-                  showCarriedBadge: true,
-                  onRemoveFromToday: () =>
-                      repo.removeCarryFromToday(homeTaskEntityKey(task)),
-                  onTap: () =>
-                      showHomeTaskProgressEditor(context, ref, task),
-                );
-              },
             ),
-        ] else ...[
-          Text(
-            'From earlier days. Not counted in week average, surf, streak, or ribbon totals.',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.9),
-              height: 1.35,
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: _kHomeTaskHorizontalPadding),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final total = tasks.length + carriedTasks.length;
+                  final last = index == total - 1;
+                  if (index < tasks.length) {
+                    final task = tasks[index];
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: last ? 0 : 4),
+                      child: _TaskTile(
+                        task: task,
+                        onTap: () =>
+                            showHomeTaskProgressEditor(context, ref, task),
+                        onDelete: task.isStandalone
+                            ? () => repo.delete(task.id)
+                            : null,
+                      ),
+                    );
+                  }
+                  final task = carriedTasks[index - tasks.length];
+                  final spillDays =
+                      carrySpillDayCounts[homeTaskEntityKey(task)] ?? 1;
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: last ? 0 : 4),
+                    child: _TaskTile(
+                      task: task,
+                      readOnly: true,
+                      showCarriedBadge: true,
+                      carrySpillDays: spillDays,
+                    ),
+                  );
+                },
+                childCount: tasks.length + carriedTasks.length,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          if (widget.spilloverTasks.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
+      ] else ...[
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: _kHomeTaskHorizontalPadding),
+            child: Text(
+              'From earlier days. Not counted in week average, surf, streak, or ribbon totals.',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.9),
+                height: 1.35,
+              ),
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        if (spilloverTasks.isEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: _kHomeTaskHorizontalPadding,
+                vertical: 24,
+              ),
               child: Center(
                 child: Text(
                   'No spillover tasks.',
@@ -285,26 +168,134 @@ class _TodayTasksSplitState extends ConsumerState<_TodayTasksSplit> {
                   ),
                 ),
               ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: widget.spilloverTasks.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 4),
-              itemBuilder: (context, index) {
-                final task = widget.spilloverTasks[index];
-                return _SpilloverTile(
-                  task: task,
-                  onAddToToday: () =>
-                      repo.addCarryToToday(homeTaskEntityKey(task)),
-                );
-              },
             ),
-        ],
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: _kHomeTaskHorizontalPadding),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final task = spilloverTasks[index];
+                  final last = index == spilloverTasks.length - 1;
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: last ? 0 : 4),
+                    child: _SpilloverTile(
+                      task: task,
+                      onAddToToday: () =>
+                          repo.addCarryToToday(homeTaskEntityKey(task)),
+                    ),
+                  );
+                },
+                childCount: spilloverTasks.length,
+              ),
+            ),
+          ),
       ],
-    );
+    ];
   }
+
+  final readOnly = day.isBefore(
+    DateTime(today.year, today.month, today.day),
+  );
+
+  return [
+    SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          _kHomeTaskHorizontalPadding,
+          0,
+          _kHomeTaskHorizontalPadding,
+          0,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    DateFormat.yMMMEd().format(selectedDate),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (onGoToToday != null)
+                  TextButton.icon(
+                    onPressed: onGoToToday,
+                    icon: const Icon(Icons.today_rounded, size: 18),
+                    label: const Text('Today'),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.only(left: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+              ],
+            ),
+            if (readOnly) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Snapshot for this day — progress is frozen.',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+    const SliverToBoxAdapter(child: SizedBox(height: 4)),
+    if (tasks.isEmpty)
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            _kHomeTaskHorizontalPadding,
+            32,
+            _kHomeTaskHorizontalPadding,
+            32,
+          ),
+          child: Center(
+            child: Text(
+              'No tasks for this day.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+      )
+    else
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: _kHomeTaskHorizontalPadding),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final task = tasks[index];
+              final last = index == tasks.length - 1;
+              return Padding(
+                padding: EdgeInsets.only(bottom: last ? 0 : 4),
+                child: _TaskTile(
+                  task: task,
+                  readOnly: readOnly,
+                  onTap: readOnly
+                      ? null
+                      : () => showHomeTaskProgressEditor(context, ref, task),
+                  onDelete: readOnly || !task.isStandalone
+                      ? null
+                      : () => repo.delete(task.id),
+                ),
+              );
+            },
+            childCount: tasks.length,
+          ),
+        ),
+      ),
+  ];
 }
 
 // --- Add Task Sheet ---
@@ -325,6 +316,7 @@ class _AddTaskSheet extends StatefulWidget {
 class _AddTaskSheetState extends State<_AddTaskSheet> {
   final _controller = TextEditingController();
   late DateTime _date;
+  String? _titleError;
 
   @override
   void initState() {
@@ -354,7 +346,11 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
 
   void _submit() {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty) {
+      setState(() => _titleError = 'Required');
+      return;
+    }
+    setState(() => _titleError = null);
     widget.onSave(text, _date);
     Navigator.of(context).pop();
   }
@@ -382,9 +378,12 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
             controller: _controller,
             autofocus: true,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
+              labelText: 'Task *',
               hintText: 'What do you need to do?',
+              errorText: _titleError,
             ),
+            onChanged: (_) => setState(() => _titleError = null),
             onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 12),
@@ -407,7 +406,8 @@ class _TaskTile extends StatelessWidget {
   final VoidCallback? onDelete;
   final bool readOnly;
   final bool showCarriedBadge;
-  final VoidCallback? onRemoveFromToday;
+  /// Distinct carry days (from [carrySpillDayCountsProvider]); defaults to 1.
+  final int carrySpillDays;
 
   const _TaskTile({
     required this.task,
@@ -415,7 +415,7 @@ class _TaskTile extends StatelessWidget {
     this.onDelete,
     this.readOnly = false,
     this.showCarriedBadge = false,
-    this.onRemoveFromToday,
+    this.carrySpillDays = 1,
   });
 
   @override
@@ -489,22 +489,7 @@ class _TaskTile extends StatelessWidget {
                         _SourceBadge(source: task.source),
                         if (showCarriedBadge) ...[
                           const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: colorScheme.secondaryContainer,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'Carried',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.onSecondaryContainer,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
+                          CarriedSpillBadge(spillDays: carrySpillDays),
                         ],
                       ],
                     ),
@@ -520,16 +505,8 @@ class _TaskTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (onRemoveFromToday != null)
-                IconButton(
-                  onPressed: onRemoveFromToday,
-                  icon: Icon(
-                    Icons.close_rounded,
-                    size: 20,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
-                  ),
-                  tooltip: 'Remove from today',
-                )
+              if (showCarriedBadge)
+                const SizedBox.shrink()
               else if (task.isLinked)
                 Icon(Icons.chevron_right_rounded,
                     size: 20,

@@ -41,9 +41,21 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             _passwordController.text,
             _nameController.text.trim(),
           );
+      
+      // Send verification email via Cloud Function
+      try {
+        await ref.read(authServiceProvider).sendEmailVerification(
+              _emailController.text.trim(),
+              _nameController.text.trim(),
+            );
+      } catch (e) {
+        // Don't block signup if email fails to send
+        print('Failed to send verification email: $e');
+      }
+      
       if (mounted) {
         showSuccessSnackBar(
-            context, 'Account created successfully! Welcome aboard.');
+            context, 'Account created! Check your email to verify your account.');
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) showErrorSnackBar(context, friendlyAuthError(e));

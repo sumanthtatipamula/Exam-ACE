@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,7 +73,10 @@ class AuthService {
 
   bool get isEmailVerified => _auth.currentUser?.emailVerified ?? false;
 
-  bool get isEmailPasswordUser =>
+  /// True when this account has an email **password** credential (Firebase
+  /// `providerId == 'password'`). Google-only / other OAuth-only sign-in has no
+  /// password provider — [canChangePassword] is false for those users.
+  bool get canChangePassword =>
       _auth.currentUser?.providerData.any((p) => p.providerId == 'password') ??
       false;
 
@@ -125,6 +129,46 @@ class AuthService {
     );
     await user.reauthenticateWithCredential(cred);
     await user.updatePassword(newPassword);
+  }
+
+  /// Send email verification link using Resend (via Cloud Function)
+  /// 
+  /// Generates a secure token and sends a branded verification email via Resend.
+  /// The link expires in 24 hours.
+  Future<void> sendEmailVerification(String email, String userName) async {
+    final functions = FirebaseFunctions.instance;
+    final callable = functions.httpsCallable('sendEmailVerification');
+    
+    await callable.call({
+      'email': email.trim(),
+      'userName': userName,
+    });
+  }
+
+  /// Send password reset email using Resend (via Cloud Function)
+  /// 
+  /// Generates a secure token and sends a branded email via Resend.
+  /// The link expires in 1 hour for security.
+  Future<void> sendPasswordResetEmail(String email) async {
+    final functions = FirebaseFunctions.instance;
+    final callable = functions.httpsCallable('sendPasswordResetEmail');
+    
+    await callable.call({
+      'email': email.trim(),
+    });
+  }
+  
+  /// Verify password reset token and update password
+  /// 
+  /// Called when user clicks the reset link and enters a new password.
+  Future<void> verifyPasswordResetToken(String token, String newPassword) async {
+    final functions = FirebaseFunctions.instance;
+    final callable = functions.httpsCallable('verifyPasswordResetToken');
+    
+    await callable.call({
+      'token': token,
+      'newPassword': newPassword,
+    });
   }
 
   Future<void> signOut() async {

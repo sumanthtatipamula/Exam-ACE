@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -12,7 +13,10 @@ void main() async {
   late final StartupPrefs startupPrefs;
   try {
     startupPrefs = await StartupPrefs.load();
-  } catch (_) {
+  } catch (e, st) {
+    if (kDebugMode) {
+      debugPrint('StartupPrefs.load failed; using defaults. $e\n$st');
+    }
     startupPrefs = StartupPrefs.defaults();
   }
   try {
@@ -20,10 +24,11 @@ void main() async {
   } catch (_) {/* SyllabusSortNotifier and others also guard reads */}
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await NotificationService.init();
+  
   runApp(
     ProviderScope(
       overrides: [
-        startupPrefsProvider.overrideWithValue(startupPrefs),
+        startupPrefsProvider.overrideWith((ref) => startupPrefs),
       ],
       child: const ExamAceApp(),
     ),
