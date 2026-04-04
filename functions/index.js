@@ -8,6 +8,9 @@ admin.initializeApp();
 // Define the Resend API key as a secret
 const resendApiKey = defineSecret('RESEND_API_KEY');
 
+/** Public base URL for verify/reset links in emails. Must match Firebase Hosting (custom domain or *.web.app). */
+const HOSTING_PUBLIC_URL = 'https://examace.sumanthtatipamula.com';
+
 /**
  * Send verification email using Resend API
  * 
@@ -121,7 +124,7 @@ exports.sendPasswordResetEmail = onCall(
       // Build reset link - use a web URL that can redirect to app
       // For now, use Firebase hosting or your domain
       // This will open in browser and can be handled by your app
-      const resetLink = `https://examace.sumanthtatipamula.com/reset-password?token=${token}`;
+      const resetLink = `${HOSTING_PUBLIC_URL}/reset-password?token=${token}`;
       
       // Get user's display name
       const userName = userRecord.displayName || normalizedEmail.split('@')[0];
@@ -270,7 +273,7 @@ exports.sendEmailVerification = onCall(
         });
 
       // Build verification link - use a web URL that can redirect to app
-      const verificationLink = `https://examace.sumanthtatipamula.com/verify-email?token=${token}`;
+      const verificationLink = `${HOSTING_PUBLIC_URL}/verify-email?token=${token}`;
 
       // Send email via Resend
       const response = await fetch('https://api.resend.com/emails', {

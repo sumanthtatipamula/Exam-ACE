@@ -213,9 +213,60 @@ firebase deploy --only functions:sendVerificationEmail
 
 ## 🌐 Firebase Hosting & Web Pages
 
-### Custom domain
+### Custom domain (`examace.sumanthtatipamula.com`)
 
-The web pages are served at **`examace.sumanthtatipamula.com`** via Firebase Hosting with a CNAME DNS record pointing to `exam-ace-db272.web.app`.
+Do this **once** so email links and browsers load your pages on HTTPS.
+
+#### 1. Deploy Hosting at least once (default URL)
+
+```bash
+firebase deploy --only hosting
+```
+
+Confirm **`https://exam-ace-db272.web.app/verify-email.html`** loads (or `/reset-password.html`). If not, fix `public/` + `firebase.json` first.
+
+#### 2. Add the domain in Firebase Console
+
+1. Open [Firebase Console](https://console.firebase.google.com) → project **exam-ace-db272**.
+2. **Build** → **Hosting** → **Add custom domain**.
+3. Enter **`examace.sumanthtatipamula.com`** (subdomain only; no `https://`).
+4. Firebase shows **DNS records** to add (verification **TXT** and either **A** records or a **CNAME** — follow **exactly** what the wizard shows; Google updates these over time).
+
+#### 3. Add DNS at your registrar
+
+Where **`sumanthtatipamula.com`** is registered (Namecheap, Google Domains, Cloudflare, etc.):
+
+1. Open **DNS management** for the domain.
+2. Add the **TXT** record(s) for **domain verification** (Firebase will show host + value).
+3. Add the **A** or **CNAME** record(s) Firebase gives for **examace** (or `@` if you used apex — you chose a **subdomain**, so it’s usually a **CNAME** named `examace` pointing to a Firebase target such as `exam-ace-db272.web.app` or a `ghs.googlehosted.com`-style host — **copy from the console**, don’t guess).
+
+Save DNS. Propagation can take **minutes to 48 hours** (often &lt; 1 hour).
+
+#### 4. Wait for SSL and “Connected”
+
+In **Hosting → Custom domains**, wait until the domain shows **Connected** and **SSL certificate** is active. Until then, links may fail or show certificate warnings.
+
+#### 5. Redeploy Cloud Functions (email links)
+
+`functions/index.js` uses **`HOSTING_PUBLIC_URL = 'https://examace.sumanthtatipamula.com'`** for links in emails. After the domain works in a browser:
+
+```bash
+firebase deploy --only functions
+```
+
+#### 6. Test
+
+- Open **`https://examace.sumanthtatipamula.com/verify-email.html`** in a browser — should load without “site can’t be reached”.
+- Trigger a real verification / password reset email and open the link.
+
+#### Troubleshooting
+
+| Issue | What to check |
+|--------|----------------|
+| **Site can’t be reached** | DNS not propagated yet; wrong CNAME/A; typo in hostname `examace`. Use [dig](https://toolbox.googleapps.com/apps/dig/) or `nslookup examace.sumanthtatipamula.com`. |
+| **SSL pending** | Wait; Firebase issues certs after DNS is correct. |
+| **Works on web.app but not custom** | Custom domain not added in Hosting or DNS incomplete. |
+| **Need a working link before DNS is ready** | Temporarily set `HOSTING_PUBLIC_URL` to `https://exam-ace-db272.web.app` in `functions/index.js`, deploy functions, then switch back after the custom domain is **Connected**. |
 
 ### Hosting rewrites (`firebase.json`)
 

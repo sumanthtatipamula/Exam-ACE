@@ -1,4 +1,4 @@
-package com.examace.exam_ace
+package com.sumanthtatipamula.examace
 
 import io.flutter.embedding.android.FlutterActivity
 

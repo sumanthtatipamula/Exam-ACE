@@ -8,6 +8,8 @@ Use this with [README.md](../README.md) and [PRIVACY.md](../PRIVACY.md).
 
 2. **Firebase** — Ensure `lib/firebase_options.dart`, `android/app/google-services.json`, and iOS plist exist locally (not committed). Release builds must point at your production Firebase project.
 
+   **Android package name:** `com.sumanthtatipamula.examace` (`applicationId` in `android/app/build.gradle.kts`). If you add this app in Firebase (or change the ID), register **that exact package** in Firebase Console → Project settings → Add Android app, add debug/release **SHA-1** for Google Sign-In, download **`google-services.json`** into `android/app/`, then run **`dart run flutterfire_cli:flutterfire configure`** so `firebase_options.dart` gets the correct Android `appId` (`mobilesdk_app_id`). The old package `com.examace.exam_ace` cannot be reused on Play for this listing if Google reports a conflict.
+
 3. **Privacy policy URL (live):** [https://sumanthtatipamula.github.io/Exam-ACE/](https://sumanthtatipamula.github.io/Exam-ACE/) — enter this in **Play Console → App content → Privacy policy**. The app uses the same URL via [`lib/core/constants/legal_urls.dart`](../lib/core/constants/legal_urls.dart) (override with `--dart-define=PRIVACY_POLICY_URL=...` if needed). Keep [PRIVACY.md](../PRIVACY.md) and `docs/index.html` aligned when you edit the policy.
 
 4. **Version** — Bump `version:` in `pubspec.yaml` (`1.0.1+2` = versionName `1.0.1`, versionCode `2`). Every Play upload needs a **higher versionCode**.
