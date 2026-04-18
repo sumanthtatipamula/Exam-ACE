@@ -118,6 +118,16 @@ class AuthService {
     return _auth.signInWithCredential(credential);
   }
 
+  /// Returns `true` when at least one sign-in provider is linked to [email].
+  ///
+  /// NOTE: Requires "Email Enumeration Protection" to be **disabled** in
+  /// Firebase Console → Authentication → Settings for accurate results.
+  /// When protection is enabled Firebase always returns an empty list.
+  Future<bool> isEmailRegistered(String email) async {
+    final methods = await _auth.fetchSignInMethodsForEmail(email.trim());
+    return methods.isNotEmpty;
+  }
+
   Future<void> changePassword(String currentPassword, String newPassword) async {
     final user = _auth.currentUser;
     if (user == null || user.email == null) {

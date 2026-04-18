@@ -10,5 +10,5 @@
 
 const String kGoogleSignInWebClientId = String.fromEnvironment(
   'GOOGLE_SIGN_IN_WEB_CLIENT_ID',
-  defaultValue: '',
+  defaultValue: '733539721297-co07j15ubrki9jmqt2nvq486spfcutei.apps.googleusercontent.com',
 );

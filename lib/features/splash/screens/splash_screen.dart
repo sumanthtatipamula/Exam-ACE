@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:exam_ace/core/constants/app_strings.dart';
 import 'package:exam_ace/core/router/app_router.dart';
+import 'package:exam_ace/features/onboarding/screens/onboarding_screen.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -36,11 +38,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         }
       });
     } else {
-      // Normal launch — show splash then navigate to sign-in
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          context.go('/sign-in');
-        }
+      // Normal launch — show splash then check onboarding status
+      Future.delayed(const Duration(seconds: 2), () async {
+        if (!mounted) return;
+        final prefs = await SharedPreferences.getInstance();
+        final onboardingDone =
+            prefs.getBool(kOnboardingCompleteKey) ?? false;
+        if (!mounted) return;
+        context.go(onboardingDone ? '/sign-in' : '/onboarding');
       });
     }
   }

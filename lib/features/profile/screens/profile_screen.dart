@@ -20,6 +20,7 @@ import 'package:exam_ace/core/settings/syllabus_sort_provider.dart';
 import 'package:exam_ace/core/constants/legal_urls.dart';
 import 'package:exam_ace/features/profile/widgets/change_password_sheet.dart';
 import 'package:exam_ace/features/profile/widgets/syllabus_sort_sheet.dart';
+import 'package:exam_ace/features/onboarding/screens/onboarding_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -379,6 +380,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const _WeekStatsToggleTile(),
           const SizedBox(height: 20),
           _ProfileSectionHeader(
+            title: 'Help',
+            subtitle: 'Walkthrough and support.',
+          ),
+          _ProfileTile(
+            icon: Icons.play_circle_outline_rounded,
+            title: 'Replay Tutorial',
+            subtitle: 'View the onboarding walkthrough again',
+            onTap: () async {
+              await resetOnboarding();
+              if (mounted) context.go('/onboarding');
+            },
+          ),
+          _ProfileTile(
+            icon: Icons.feedback_outlined,
+            title: 'Send Feedback',
+            subtitle: 'Report a bug or suggest an improvement',
+            onTap: () => _openFeedbackEmail(),
+          ),
+          const SizedBox(height: 20),
+          _ProfileSectionHeader(
             title: 'Data & account',
             subtitle:
                 'Privacy and data requests open in your browser. Destructive actions cannot be reversed.',
@@ -386,6 +407,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _ProfileAboutNavCard(
             onTap: () => context.push('/about'),
           ),
+          const SizedBox(height: 8),
+          _PrivacyAssuranceCard(),
           const SizedBox(height: 8),
           if (kPrivacyPolicyUrl.isNotEmpty) ...[
             _ProfileTile(
@@ -456,6 +479,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _openFeedbackEmail() async {
+    final user = ref.read(authServiceProvider).currentUser;
+    final email = user?.email ?? 'unknown';
+    final uri = Uri(
+      scheme: 'mailto',
+      path: 'support@examace.app',
+      queryParameters: {
+        'subject': 'Exam Ace Feedback',
+        'body': '\n\n---\nApp: Exam Ace\nUser: $email\n',
+      },
+    );
+    try {
+      final ok = await launchUrl(uri);
+      if (!ok && mounted) {
+        showErrorSnackBar(context, 'Could not open email app');
+      }
+    } on Object catch (_) {
+      if (mounted) {
+        showErrorSnackBar(context, 'Could not open email app');
+      }
+    }
   }
 
   Future<void> _openExternalUrl(String urlString) async {
@@ -1241,6 +1287,55 @@ class _ThemeToggleTile extends ConsumerWidget {
                 visualDensity: VisualDensity.compact,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 padding: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PrivacyAssuranceCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 0),
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.shield_outlined,
+                size: 22, color: colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Your data is secure',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'All data is stored securely using Firebase with encryption '
+                    'in transit and at rest. We never sell or share your personal '
+                    'information. Read our privacy policy for full details.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

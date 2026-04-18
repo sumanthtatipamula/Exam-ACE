@@ -241,12 +241,15 @@ exports.sendEmailVerification = onCall(
       throw new Error('User must be authenticated to send verification email');
     }
 
-    const {email, userName} = request.data;
+    const {email, userName: rawName} = request.data;
 
     // Validate input
-    if (!email || !userName) {
-      throw new Error('Email and userName are required');
+    if (!email) {
+      throw new Error('Email is required');
     }
+
+    // userName is optional on resend; fall back to the local part of the email
+    const userName = rawName || email.split('@')[0];
 
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -293,8 +296,9 @@ exports.sendEmailVerification = onCall(
       const result = await response.json();
 
       if (!response.ok) {
-        console.error('Resend API error:', result);
-        throw new Error('Failed to send email');
+        console.error('Resend API error:', JSON.stringify(result));
+        const detail = result?.message || result?.error?.message || 'Unknown Resend error';
+        throw new Error('Email delivery failed: ' + detail);
       }
 
       return {

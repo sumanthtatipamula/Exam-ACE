@@ -181,14 +181,26 @@ double dailyAverageProgressRatio(List<HomeTask> tasks) {
 
 /// Weekly headline ratio \[0, 1\] for the Mon–Sun week starting [weekMonday],
 /// using [metricFormulaProvider] (Math / Physics / Chemistry).
+///
+/// For the **current** calendar week only days up to and including today are
+/// counted so that tasks scheduled for future days (still at 0%) don't drag
+/// the score down. Past weeks always use all 7 days.
 double computeWeeklyMetricRatio(Ref ref, DateTime weekMonday) {
   final mode = ref.watch(metricFormulaProvider);
   final monday = DateUtils.dateOnly(weekMonday);
+  final todayOnly = DateUtils.dateOnly(DateTime.now());
   final progressPerTask = <int>[];
   final dailyAvgs = <double>[];
   final dailyCounts = <int>[];
   for (var i = 0; i < 7; i++) {
     final date = monday.add(Duration(days: i));
+    // Skip future days of the current calendar week — tasks there are
+    // typically 0% and would unfairly tank the weekly score.
+    if (date.isAfter(todayOnly)) {
+      dailyCounts.add(0);
+      dailyAvgs.add(0.0);
+      continue;
+    }
     final key = dateKey(date);
     final tasks = ref.watch(homeTasksForMetricsProvider(key));
     dailyCounts.add(tasks.length);
@@ -391,10 +403,16 @@ final weeklySurfDataForWeekProvider =
     completedPerDay.add(done);
   }
 
-  final weekProgressSum =
-      progressSums.fold<int>(0, (a, b) => a + b);
-  final weekTaskCount =
-      totalCounts.fold<int>(0, (a, b) => a + b);
+  // Only sum progress for days up to today so future 0% tasks don't inflate
+  // the denominator and make the ribbon "X / Y" look unachievable mid-week.
+  var weekProgressSum = 0;
+  var weekTaskCount = 0;
+  for (var i = 0; i < 7; i++) {
+    final date = monday.add(Duration(days: i));
+    if (date.isAfter(todayOnly)) continue;
+    weekProgressSum += progressSums[i];
+    weekTaskCount += totalCounts[i];
+  }
   final weekProgressCap = weekTaskCount * 100;
 
   final weekMetricRatio = computeWeeklyMetricRatio(ref, monday);
@@ -491,13 +509,19 @@ final weekOverWeekForWeekProvider =
   ref.watch(metricFormulaProvider);
   final thisMonday = DateUtils.dateOnly(weekMonday);
   final lastMonday = thisMonday.subtract(const Duration(days: 7));
+  final todayOnly = DateUtils.dateOnly(DateTime.now());
 
   var thisTotal = 0;
   var lastTotal = 0;
   for (var i = 0; i < 7; i++) {
-    final thisKey = dateKey(thisMonday.add(Duration(days: i)));
+    final thisDate = thisMonday.add(Duration(days: i));
+    // For the current calendar week, only count days up to today so that
+    // future scheduled tasks don't trigger a misleading comparison.
+    if (!thisDate.isAfter(todayOnly)) {
+      final thisKey = dateKey(thisDate);
+      thisTotal += ref.watch(homeTasksForMetricsProvider(thisKey)).length;
+    }
     final lastKey = dateKey(lastMonday.add(Duration(days: i)));
-    thisTotal += ref.watch(homeTasksForMetricsProvider(thisKey)).length;
     lastTotal += ref.watch(homeTasksForMetricsProvider(lastKey)).length;
   }
 

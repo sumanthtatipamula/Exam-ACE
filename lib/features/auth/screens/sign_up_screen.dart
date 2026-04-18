@@ -67,7 +67,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         if (mounted) {
           showErrorSnackBar(
             context,
-            'Failed to send verification email. Please try signing up again or contact support.',
+            'Unable to send verification email. Please check that your email '
+            'address is correct and try again, or sign in with Google instead.',
           );
           setState(() => _loading = false);
         }

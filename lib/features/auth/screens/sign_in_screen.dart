@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +21,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
   bool _obscurePassword = true;
+  String? _googleSignInError;
 
   @override
   void dispose() {
@@ -30,11 +32,18 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   Future<void> _signInWithProvider(
       Future<dynamic> Function() signInFn) async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _googleSignInError = null;
+    });
     try {
       await signInFn();
     } on Object catch (e) {
-      if (mounted) showErrorSnackBar(context, friendlyAuthError(e));
+      final message = friendlyAuthError(e);
+      if (mounted) {
+        setState(() => _googleSignInError = message);
+        showErrorSnackBar(context, message);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -67,6 +76,36 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         }
       } else if (mounted) {
         context.go('/main');
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      // For 'invalid-credential' or legacy 'wrong-password' / 'user-not-found',
+      // check whether the email actually exists so we can give a precise message.
+      if (e.code == 'invalid-credential' ||
+          e.code == 'wrong-password' ||
+          e.code == 'user-not-found') {
+        try {
+          final exists = await ref
+              .read(authServiceProvider)
+              .isEmailRegistered(_emailController.text.trim());
+          if (!mounted) return;
+          if (exists) {
+            showErrorSnackBar(
+              context,
+              'Incorrect password. Please try again or use "Forgot password?" to reset it.',
+            );
+          } else {
+            showErrorSnackBar(
+              context,
+              'No account found with this email. Please sign up first.',
+            );
+          }
+        } on Object {
+          // If the lookup itself fails (e.g. network), fall back to generic message.
+          if (mounted) showErrorSnackBar(context, friendlyAuthError(e));
+        }
+      } else {
+        showErrorSnackBar(context, friendlyAuthError(e));
       }
     } on Object catch (e) {
       if (mounted) showErrorSnackBar(context, friendlyAuthError(e));
@@ -235,6 +274,57 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     iconColor: colorScheme.onSurface,
                   ),
                 ),
+                if (_googleSignInError != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.errorContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: colorScheme.error.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.error_outline,
+                                size: 18, color: colorScheme.error),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Google Sign-In failed',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.error,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _googleSignInError!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onErrorContainer,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Try using email sign-in above, or check your internet connection.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -9,6 +9,7 @@ import 'package:exam_ace/features/auth/screens/reset_password_screen.dart';
 import 'package:exam_ace/features/auth/screens/verify_email_screen.dart';
 import 'package:exam_ace/features/auth/screens/email_verification_pending_screen.dart';
 import 'package:exam_ace/features/splash/screens/splash_screen.dart';
+import 'package:exam_ace/features/onboarding/screens/onboarding_screen.dart';
 import 'package:exam_ace/features/dashboard/screens/dashboard_screen.dart';
 import 'package:exam_ace/features/calendar/screens/calendar_screen.dart';
 import 'package:exam_ace/features/subjects/screens/subject_detail_screen.dart';
@@ -51,6 +52,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Always allow these routes without any auth checks
       if (path == '/' || 
+          path == '/onboarding' ||
           path == '/sign-in' || 
           path == '/sign-up' ||
           path.startsWith('/reset-password') || 
@@ -79,6 +81,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/',
         name: 'splash',
         builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        name: 'onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
         path: '/sign-in',
